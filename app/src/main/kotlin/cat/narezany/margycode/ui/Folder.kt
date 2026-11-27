@@ -3,7 +3,10 @@ package cat.narezany.margycode.ui
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -38,14 +41,18 @@ import androidx.compose.ui.unit.dp
 import cat.narezany.margycode.Brain
 import cat.narezany.margycode.tr
 
-/** The folder a chat works in. A new chat's can be changed; an open one shows where it works. */
+/** The folder a chat works in. It belongs to the chat, so it is picked when a chat starts. */
 @Composable
 fun FolderChip(brain: Brain) {
     var dialog by remember { mutableStateOf(false) }
+    var hint by remember { mutableStateOf(false) }
     val session = brain.session()
     val label = if (session != null) brain.folderLabel(session.directory) else brain.folderLabel(brain.folder().absolutePath)
     Surface(color = Color.Transparent, shape = RoundedCornerShape(18.dp),
-        modifier = Modifier.clip(RoundedCornerShape(18.dp)).clickable(enabled = session == null) { dialog = true }) {
+        modifier = Modifier.clip(RoundedCornerShape(18.dp)).clickable {
+            // An open chat keeps the folder it was made with; changing it is a new chat's business.
+            if (session == null) dialog = true else hint = true
+        }) {
         Row(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.Folder, null, Modifier.size(18.dp))
             Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -53,6 +60,17 @@ fun FolderChip(brain: Brain) {
         }
     }
     if (dialog) FolderDialog(brain) { dialog = false }
+    if (hint) AlertDialog(
+        onDismissRequest = { hint = false },
+        icon = { Icon(Icons.Outlined.Folder, null) },
+        title = { Text(tr("Папка — для нового чата", "The folder is for a new chat")) },
+        text = {
+            Text(tr("Этот чат работает в папке «$label» и дальше останется в ней. Начните новый чат и выберите папку на его чипе.",
+                "This chat works in “$label” and stays there. Start a new chat and pick the folder on its chip."))
+        },
+        confirmButton = { TextButton({ hint = false; brain.openSession(null) }) { Text(tr("Новый чат", "New chat")) } },
+        dismissButton = { TextButton({ hint = false }) { Text(tr("Понятно", "Got it")) } },
+    )
 }
 
 @Composable
@@ -63,6 +81,11 @@ fun FolderDialog(brain: Brain, close: () -> Unit) {
         mutableStateOf(when (brain.prefs.folder) { "" -> "app"; phone -> "phone"; else -> "own" })
     }
     var path by remember { mutableStateOf(brain.prefs.folder.takeIf { it.isNotEmpty() && it != phone } ?: "$phone/LoopyCode") }
+    // Android's own picker hands back a content:// tree; the agent still needs a real path.
+    val browse = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        val picked = uri?.let { pathOf(it, phone) }
+        if (picked != null) { path = picked; choice = "own" }
+    }
     fun askFiles() {
         if (Build.VERSION.SDK_INT >= 30) runCatching {
             context.startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:" + context.packageName)))
@@ -85,7 +108,10 @@ fun FolderDialog(brain: Brain, close: () -> Unit) {
                     RadioButton(choice == v, { choice = v })
                     Text(label)
                 }
-                if (choice == "own") OutlinedTextField(path, { path = it.trim() }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                if (choice == "own") Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(path, { path = it.trim() }, singleLine = true, modifier = Modifier.weight(1f))
+                    TextButton({ browse.launch(null) }) { Text(tr("Обзор", "Browse")) }
+                }
                 if (choice != "app" && !brain.filesGranted) {
                     Text(tr("Нужно разрешение «Доступ ко всем файлам».", "This needs the “Access all files” permission."),
                         color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
@@ -104,4 +130,20 @@ fun FolderDialog(brain: Brain, close: () -> Unit) {
         },
         dismissButton = { TextButton(close) { Text(tr("Отмена", "Cancel")) } },
     )
+}
+
+/**
+ * Android's tree picker names what it hands back after the volume it lives on: `primary:Download/Chats`
+ * on the phone itself, `<card>:Folder` on a card, `raw:/storage/...` when it says it plainly.
+ */
+private fun pathOf(uri: Uri, phone: String): String? {
+    val id = runCatching { DocumentsContract.getTreeDocumentId(uri) }.getOrNull() ?: return null
+    val volume = id.substringBefore(':')
+    val rest = id.substringAfter(':', "").trim('/')
+    return when {
+        volume == "primary" -> if (rest.isEmpty()) phone else "$phone/$rest"
+        volume == "raw" -> id.substringAfter(':', "").trimEnd('/').takeIf { it.startsWith("/") }
+        volume.isEmpty() -> null
+        else -> if (rest.isEmpty()) "/storage/$volume" else "/storage/$volume/$rest"
+    }
 }
