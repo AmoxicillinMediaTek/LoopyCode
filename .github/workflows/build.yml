@@ -1,9 +1,11 @@
 name: Build
 
-# Compiles LoopyCode (https://github.com/AmoxicillinMediaTek/LoopyCode).
-# The engines under app/src/main/jniLibs are gitignored, so this checks that the
-# Kotlin/Compose app itself compiles and packs; it does not produce a shippable
-# apk. Build those with engine/build-*.sh first if you need the real thing.
+# Compiles LoopyCode (https://github.com/AmoxicillinMediaTek/LoopyCode) and the engines
+# it runs: opencode (upstream, built onto the official Bun for Android), proot and the
+# musl loader for the Alpine shell, and llama.cpp's llama-server for phone-side models.
+# Those binaries are way too big for git, so the "engines" job builds them with
+# engine/build-*.sh and the "app" job packs the result into the apk. An apk built
+# without them starts and then says opencode is missing.
 
 on:
   push:
@@ -16,10 +18,86 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Assemble debug apk
+  engines:
+    name: Build the engines
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Make room on the disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk/ndk /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+        continue-on-error: true
+
+      # The downloads and the sources the scripts clone are the slow part; opencode's
+      # node_modules and llama.cpp's object files are what make a rebuild cheap.
+      - name: Cache the engine sources and builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            engine/dl
+            engine/out
+            engine/opencode
+            engine/linux
+            engine/llama
+            app/src/main/jniLibs
+          key: engines-${{ runner.os }}-${{ hashFiles('engine/build-*.sh','engine/linux.sh','engine/claude.sh','engine/*.sha256','engine/patches/*') }}
+
+      - name: Set up the Android SDK and the NDK
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+          packages: "platform-tools ndk;28.1.13356709"
+
+      - name: Point the scripts at the NDK and the tools
+        run: |
+          ndk="$ANDROID_SDK_ROOT/ndk/28.1.13356709"
+          test -x "$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" || {
+            echo "the NDK is not where it should be: $ndk" >&2
+            exit 1
+          }
+          echo "NDK=$ndk" >> "$GITHUB_ENV"
+          echo "NINJA=$(command -v ninja)" >> "$GITHUB_ENV"
+          echo "JOBS=$(nproc)" >> "$GITHUB_ENV"
+
+      - name: Build opencode
+        run: engine/build-engine.sh
+
+      - name: Build the musl loader for Claude Code
+        run: engine/build-loader.sh
+
+      - name: Build proot and the shell
+        run: engine/build-linux.sh
+
+      - name: Build llama-server
+        run: engine/build-llama.sh
+
+      - name: Check what came out
+        run: |
+          ls -la app/src/main/jniLibs/arm64-v8a
+          for f in libopencode.so libproot.so libprootloader.so liblinux.so \
+            libldmusl.so libclaude.so libllamaserver.so libllamaserveri8mm.so; do
+            test -s "app/src/main/jniLibs/arm64-v8a/$f" || { echo "no $f" >&2; exit 1; }
+          done
+
+      - name: Upload the engines
+        uses: actions/upload-artifact@v4
+        with:
+          name: loopycode-engines
+          path: app/src/main/jniLibs/arm64-v8a
+          if-no-files-found: error
+          retention-days: 14
+
+  app:
+    name: Assemble the debug apk
+    needs: engines
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: Check out
@@ -38,6 +116,20 @@ jobs:
           log-accepted-android-sdk-licenses: false
           packages: "platform-tools platforms;android-35 build-tools;35.0.0"
 
+      - name: Bring the engines in
+        uses: actions/download-artifact@v4
+        with:
+          name: loopycode-engines
+          path: app/src/main/jniLibs/arm64-v8a
+
+      - name: Check the engines are unpacked as libraries
+        run: |
+          ls -la app/src/main/jniLibs/arm64-v8a
+          for f in libopencode.so libproot.so libprootloader.so liblinux.so \
+            libldmusl.so libclaude.so libllamaserver.so libllamaserveri8mm.so; do
+            test -s "app/src/main/jniLibs/arm64-v8a/$f" || { echo "no $f" >&2; exit 1; }
+          done
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -45,6 +137,11 @@ jobs:
 
       - name: Compile
         run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Check the apk carries the engines
+        run: |
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep 'libopencode\.so'
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep 'libllamaserver\.so'
 
       - name: Upload the apk
         uses: actions/upload-artifact@v4

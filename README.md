@@ -135,10 +135,16 @@ each script. `build.sh` signs with a key in `keys/`, which isn't in this
 repository, so make your own. Android will not put your build over the official
 one: remove that first.
 
-`.github/workflows/build.yml` does the compile on every push: JDK 17, the Android
-SDK, Gradle 8.11.1, `:app:assembleDebug`, and the apk as an artifact. The engines
-in `app/src/main/jniLibs` are gitignored, so that apk is the UI without them —
-run the `engine/` scripts first for a build with opencode inside.
+The engines live in `app/src/main/jniLibs` and are gitignored — they are far too
+big for git — so nothing is packed into the apk before you run those scripts. An
+apk built without them installs and starts, and then says opencode is missing.
+
+`.github/workflows/build.yml` does all of it on every push. The `engines` job
+installs NDK 28.1.13356709 and runs `engine/build-engine.sh`, `build-loader.sh`,
+`build-linux.sh` and `build-llama.sh` (cached between runs); the `app` job
+unpacks those libraries next to the sources, builds the sdk with Gradle 8.11.1
+and `:app:assembleDebug`, and uploads `loopycode-debug-apk` — an apk with
+opencode, proot and llama-server already inside.
 
 ## Licence
 

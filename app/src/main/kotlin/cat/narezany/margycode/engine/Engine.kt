@@ -53,7 +53,10 @@ class Engine(private val context: Context) {
     suspend fun start(): Unit = withContext(Dispatchers.IO) {
         if (running) return@withContext
         val bin = File(context.applicationInfo.nativeLibraryDir, "libopencode.so")
-        if (!bin.exists()) error("opencode is missing from the app: $bin")
+        if (!bin.exists()) error(
+            "opencode is missing from the app: $bin. This apk was packed without the engines; " +
+                "run engine/build-engine.sh (and the other engine/build-*.sh) before assembling.",
+        )
         port = ServerSocket(0).use { it.localPort }
         for (d in listOf(home, workspace, tmp, config)) d.mkdirs()
         beforeStart()

@@ -9,6 +9,7 @@ TALLOC=talloc_2.4.2.orig.tar.gz
 TALLOC_SHA=$(cat "$here/talloc.sha256")
 NDK=${NDK:-$HOME/.zcode/android-build/sdk/ndk/28.1.13356709}/toolchains/llvm/prebuilt/linux-x86_64/bin
 out="$here/../app/src/main/jniLibs/arm64-v8a"
+mkdir -p "$here/linux"
 cd "$here/linux"
 [ -d proot ] || git clone -q https://github.com/termux/proot.git proot
 git -C proot checkout -q "$PROOT_COMMIT"

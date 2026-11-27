@@ -6,6 +6,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 TAG=v0.8.0
 NDK=${NDK:-$HOME/.zcode/android-build/sdk/ndk/28.1.13356709}
 NINJA=${NINJA:-$HOME/.zcode/android-build/sdk/cmake/3.22.1/bin/ninja}
+mkdir -p "$here/llama"
 cd "$here/llama"
 [ -d llama.cpp ] || git clone -q --depth 1 --branch "$TAG" https://github.com/ggml-org/llama.cpp.git llama.cpp
 git -C llama.cpp checkout -q "$TAG"
@@ -26,7 +27,7 @@ for variant in base i8mm; do
         -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_OPENSSL=OFF -DGGML_OPENMP=OFF \
         -DGGML_NATIVE=OFF -DGGML_CPU_ARM_ARCH=$arch -DLLAMA_SUBPROCESS=ON "-DCMAKE_CXX_FLAGS=-DSUBPROCESS_HAVE_CWD=0" "-DCMAKE_C_FLAGS=-DSUBPROCESS_HAVE_CWD=0" \
         -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON -DLLAMA_BUILD_SERVER=ON >/dev/null || { echo "cmake failed for $variant" >&2; exit 1; }
-    cmake --build "build-$variant" --target llama-server -j 16 >/dev/null || { echo "cmake failed for $variant" >&2; exit 1; }
+    cmake --build "build-$variant" --target llama-server -j "${JOBS:-16}" >/dev/null || { echo "cmake failed for $variant" >&2; exit 1; }
     "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" -o "$out/$name" "build-$variant/bin/llama-server"
 done
 ls -la "$out"/libllamaserver*.so
