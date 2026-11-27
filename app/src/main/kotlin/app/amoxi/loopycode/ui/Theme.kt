@@ -35,16 +35,30 @@ private val Dark = darkColorScheme(
     surfaceContainer = Color(0xFF1B211E), surfaceContainerHigh = Color(0xFF252B28),
     surfaceContainerHighest = Color(0xFF303633),
 )
+// the same dark, with the black parts truly black: on an OLED screen those pixels are switched off.
+private val Oled = darkColorScheme(
+    primary = Color(0xFF8DD5B4), onPrimary = Color(0xFF003827),
+    primaryContainer = Color(0xFF00513A), onPrimaryContainer = Color(0xFFA8F2D0),
+    secondary = Color(0xFFB3CCBE), secondaryContainer = Color(0xFF354B41), onSecondaryContainer = Color(0xFFCFE9DA),
+    tertiary = Color(0xFFA6CCE0), tertiaryContainer = Color(0xFF254B5B),
+    background = Color.Black, surface = Color.Black,
+    surfaceVariant = Color(0xFF1C1C1C), onSurfaceVariant = Color(0xFFBFC9C1),
+    surfaceContainerLowest = Color.Black, surfaceContainerLow = Color(0xFF050505),
+    surfaceContainer = Color(0xFF0B0B0B), surfaceContainerHigh = Color(0xFF141414),
+    surfaceContainerHighest = Color(0xFF1E1E1E),
+)
 
 @Composable
 fun LoopyTheme(prefs: Prefs, content: @Composable () -> Unit) {
+    val oled = prefs.theme == "oled"
     val dark = when (prefs.theme) {
         "light" -> false
-        "dark" -> true
+        "dark", "oled" -> true
         else -> isSystemInDarkTheme()
     }
     val context = LocalContext.current
     val colours = when {
+        oled -> Oled
         prefs.dynamic && Build.VERSION.SDK_INT >= 31 ->
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         dark -> Dark

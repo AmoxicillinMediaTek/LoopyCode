@@ -24,9 +24,11 @@ import app.amoxi.loopycode.data.jsonOf
 import app.amoxi.loopycode.data.objects
 import app.amoxi.loopycode.data.str
 import app.amoxi.loopycode.engine.Api
+import app.amoxi.loopycode.engine.ApiError
 import app.amoxi.loopycode.engine.ClaudeCode
 import app.amoxi.loopycode.engine.Engine
 import app.amoxi.loopycode.engine.Linux
+import app.amoxi.loopycode.engine.Local
 import app.amoxi.loopycode.engine.EngineService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -46,7 +48,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
     val api = Api(engine)
     val claude = ClaudeCode(app, engine)
     val linux = Linux(app, engine)
-    val local = app.amoxi.loopycode.engine.Local(app)
+    val local = Local(app)
     /** What went wrong starting the models on the phone, if anything. */
     var localError by mutableStateOf<String?>(null)
         private set
@@ -303,7 +305,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
 
     fun model(ref: String?) = models.firstOrNull { it.ref == ref }
 
-    fun providerName(id: String) = if (id == app.amoxi.loopycode.engine.Local.PROVIDER) tr("На телефоне", "On the phone")
+    fun providerName(id: String) = if (id == Local.PROVIDER) tr("На телефоне", "On the phone")
         else integrations.firstOrNull { it.id == id }?.name ?: id
 
     fun session(id: String? = open) = sessions.firstOrNull { it.id == id }
@@ -332,7 +334,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
         if (session()?.model == m.ref) viewModelScope.launch { guard { api.post("/api/session/$id/model", jsonOf("model" to ref(m))) } }
     }
 
-    fun isLocal(m: Model) = m.provider == app.amoxi.loopycode.engine.Local.PROVIDER
+    fun isLocal(m: Model) = m.provider == Local.PROVIDER
 
     /** opencode's own agent with tools, or the plain chat for models on the phone unless asked otherwise. */
     fun agentFor(m: Model) = if (isLocal(m) && !prefs.localTools) "chat" else "build"
@@ -466,7 +468,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
                 "location" to jsonOf("directory" to folder().absolutePath))
             val made = try {
                 api.post("/api/experimental/session/import", body)
-            } catch (e: app.amoxi.loopycode.engine.ApiError) {
+            } catch (e: ApiError) {
                 if (e.code == 409) error(tr("Этот диалог уже есть в приложении", "This chat is already in the app")) else throw e
             }
             loadSessions()
@@ -597,7 +599,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
 
     private fun builtIn(): String {
         val o = jsonOf("instructions" to JSONArray().put(promptFile.absolutePath))
-        local.provider(prefs.localContext)?.let { o.put("providers", jsonOf(app.amoxi.loopycode.engine.Local.PROVIDER to it)) }
+        local.provider(prefs.localContext)?.let { o.put("providers", jsonOf(Local.PROVIDER to it)) }
         // A plain conversation without tools: opencode then sends ~600 tokens instead of ~6000, which on a
         // phone's processor is the difference between seconds and minutes before the first word.
         o.put("agents", jsonOf("chat" to jsonOf(

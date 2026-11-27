@@ -42,13 +42,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.amoxi.loopycode.Brain
+import app.amoxi.loopycode.Lang
 import app.amoxi.loopycode.engine.Local
 import app.amoxi.loopycode.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-private fun gb(bytes: Long) = "%.1f".format(bytes / 1e9).replace('.', if (app.amoxi.loopycode.Lang.ru) ',' else '.') +
+private fun gb(bytes: Long) = "%.1f".format(bytes / 1e9).replace('.', if (Lang.ru) ',' else '.') +
     tr(" ГБ", " GB")
 
 /** Models that run on the phone: download from the list or by a link, and how much they remember. */

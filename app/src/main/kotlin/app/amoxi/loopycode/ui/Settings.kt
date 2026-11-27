@@ -46,7 +46,7 @@ fun SettingsScreen(brain: Brain, back: () -> Unit) {
     Page(tr("Настройки", "Settings"), back) { mod ->
         Column(mod.verticalScroll(rememberScrollState()).navigationBarsPadding().imePadding()) {
             Section(tr("Оформление", "Look"))
-            for ((v, label) in listOf("system" to tr("Как в системе", "As the system"), "light" to tr("Светлая", "Light"), "dark" to tr("Тёмная", "Dark"))) {
+            for ((v, label) in listOf("system" to tr("Как в системе", "As the system"), "light" to tr("Светлая", "Light"), "dark" to tr("Тёмная", "Dark"), "oled" to tr("Чёрная (OLED)", "Black (OLED)"))) {
                 Row(Modifier.fillMaxWidth().clickable { brain.update { it.copy(theme = v) } }.padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(brain.prefs.theme == v, { brain.update { it.copy(theme = v) } })

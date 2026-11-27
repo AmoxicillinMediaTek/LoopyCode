@@ -21,6 +21,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Surface
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
@@ -38,7 +39,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) take(intent)
         setContent {
-            LoopyTheme(brain.prefs) {
+            val prefs = brain.prefs
+            // the bars have to follow the theme the person chose, not only the phone's own setting
+            LaunchedEffect(prefs.theme) { bars(prefs.theme) }
+            LoopyTheme(prefs) {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) { Root(brain) }
             }
         }
@@ -47,6 +51,22 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         brain.checkFiles()
+    }
+
+    /** Light or dark icons in the status and navigation bars, for the chosen theme. */
+    private fun bars(theme: String) {
+        val dark: (android.content.res.Resources) -> Boolean = { res ->
+            when (theme) {
+                "light" -> false
+                "dark", "oled" -> true
+                else -> (res.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+        }
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT, dark),
+            navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT, dark),
+        )
     }
 
     override fun onNewIntent(intent: Intent) {
