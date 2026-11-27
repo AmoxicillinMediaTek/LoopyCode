@@ -15,6 +15,8 @@ git -C llama.cpp checkout -q "$TAG"
 # Subprocesses are off for Android by default; the router mode needs them, and the app may start them
 # because the binary lives in its library folder.
 # Bionic only has posix_spawn_file_actions_addchdir_np from Android 14 on; the router never asks for it.
+# The server's web UI is a bundle downloaded from Hugging Face at build time, and the app talks to
+# the HTTP API instead: leave it out.
 out="$here/../app/src/main/jniLibs/arm64-v8a"
 mkdir -p "$out"
 for variant in base i8mm; do
@@ -29,7 +31,8 @@ for variant in base i8mm; do
         -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28 \
         -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_OPENSSL=OFF -DGGML_OPENMP=OFF \
         -DGGML_NATIVE=OFF -DGGML_CPU_ARM_ARCH=$arch -DLLAMA_SUBPROCESS=ON "-DCMAKE_CXX_FLAGS=-DSUBPROCESS_HAVE_CWD=0" "-DCMAKE_C_FLAGS=-DSUBPROCESS_HAVE_CWD=0" \
-        -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON -DLLAMA_BUILD_SERVER=ON >"$log" 2>&1; then
+        -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON -DLLAMA_BUILD_SERVER=ON \
+        -DLLAMA_BUILD_UI=OFF -DLLAMA_USE_PREBUILT_UI=OFF >"$log" 2>&1; then
         echo "cmake could not configure the $variant build, see $log:" >&2
         grep -i -m 20 -e error -e 'not found' -e fail "$log" >&2 || true
         tail -n 15 "$log" >&2
