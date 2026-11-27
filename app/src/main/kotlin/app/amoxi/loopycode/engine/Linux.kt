@@ -1,6 +1,9 @@
 package app.amoxi.loopycode.engine
 
 import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -15,6 +18,8 @@ import java.security.MessageDigest
  */
 class Linux(private val context: Context, private val engine: Engine) {
     @Volatile private var commandProcess: Process? = null
+    var terminalCwd by mutableStateOf("/root")
+        private set
     private val dir get() = File(context.filesDir, "linux")
     val rootfs get() = File(dir, "rootfs")
     private val libs get() = context.applicationInfo.nativeLibraryDir
@@ -91,15 +96,19 @@ class Linux(private val context: Context, private val engine: Engine) {
     /** Runs one command inside, the way opencode will, and returns what it printed. */
     suspend fun run(command: String, servers: String): String = withContext(Dispatchers.IO) {
         writeResolv(servers)
-        val pb = ProcessBuilder("$libs/liblinux.so", "-c", command).directory(engine.workspace).redirectErrorStream(true)
-        pb.environment().putAll(engine.baseEnv() + env())
+        val marker = "__LOOPY_CWD__"
+        val shellCommand = "$command\nprintf '\\n$marker%s\\n' \"\$PWD\""
+        val pb = ProcessBuilder("$libs/liblinux.so", "-c", shellCommand).directory(engine.workspace).redirectErrorStream(true)
+        pb.environment().putAll(engine.baseEnv() + env() + ("MARGY_CWD" to terminalCwd))
         val p = pb.start()
         commandProcess = p
         try {
             p.outputStream.close()
             val text = p.inputStream.bufferedReader().readText()
             p.waitFor()
-            text.trim()
+            val cwdMatch = Regex("\\n${marker}(/[^\\r\\n]*)\\r?\\n?$").find(text)
+            cwdMatch?.groupValues?.get(1)?.let { terminalCwd = it }
+            (if (cwdMatch != null) text.substring(0, cwdMatch.range.first) else text).trim()
         } finally {
             if (commandProcess === p) commandProcess = null
         }

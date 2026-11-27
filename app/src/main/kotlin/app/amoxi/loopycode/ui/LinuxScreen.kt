@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.amoxi.loopycode.Brain
@@ -83,6 +84,8 @@ fun LinuxScreen(brain: Brain, back: () -> Unit) {
     var problem by remember { mutableStateOf<String?>(null) }
     var command by remember { mutableStateOf(TextFieldValue("")) }
     var log by remember { mutableStateOf("") }
+    val promptPath = linux.terminalCwd.let { path -> if (path == "/root") "~" else if (path.startsWith("/root/")) "~/${path.removePrefix("/root/")}" else path }
+    val prompt = "root@localhost $promptPath $"
     var running by remember { mutableStateOf(false) }
     var shift by remember { mutableStateOf(false) }
     var control by remember { mutableStateOf(false) }
@@ -90,7 +93,7 @@ fun LinuxScreen(brain: Brain, back: () -> Unit) {
     fun run(cmd: String) {
         if (cmd.isBlank() || running) return
         running = true
-        log += "$ $cmd\n"
+        log += "$prompt $cmd\n"
         scope.launch {
             try {
                 val out = linux.run(cmd, brain.claude.dns())
@@ -168,6 +171,8 @@ fun LinuxScreen(brain: Brain, back: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(command, { command = it }, singleLine = true,
                         textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                        leadingIcon = { Text(prompt, fontFamily = FontFamily.Monospace, fontSize = 12.sp, maxLines = 1,
+                            softWrap = false, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.primary) },
                         placeholder = { Text("apk add python3") },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = { run(command.text); command = TextFieldValue("") }),
