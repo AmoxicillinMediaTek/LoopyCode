@@ -62,7 +62,7 @@ fun FolderDialog(brain: Brain, close: () -> Unit) {
     var choice by remember {
         mutableStateOf(when (brain.prefs.folder) { "" -> "app"; phone -> "phone"; else -> "own" })
     }
-    var path by remember { mutableStateOf(brain.prefs.folder.takeIf { it.isNotEmpty() && it != phone } ?: "$phone/MargyCode") }
+    var path by remember { mutableStateOf(brain.prefs.folder.takeIf { it.isNotEmpty() && it != phone } ?: "$phone/LoopyCode") }
     fun askFiles() {
         if (Build.VERSION.SDK_INT >= 30) runCatching {
             context.startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:" + context.packageName)))

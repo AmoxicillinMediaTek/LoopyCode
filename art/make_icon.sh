@@ -1,5 +1,5 @@
 #!/bin/sh
-# MargyCode's icon as a PNG for the store and the readme, the same shapes as
+# LoopyCode's icon as a PNG for the store and the readme, the same shapes as
 # res/drawable/ic_launcher_foreground.xml. Needs rsvg-convert.
 here=$(cd "$(dirname "$0")" && pwd)
 cat > "$here/icon.svg" <<'SVG'
@@ -14,4 +14,4 @@ cat > "$here/icon.svg" <<'SVG'
   </g>
 </svg>
 SVG
-rsvg-convert "$here/icon.svg" -o "$here/margycode-1024.png"
+rsvg-convert "$here/icon.svg" -o "$here/loopycode-1024.png"

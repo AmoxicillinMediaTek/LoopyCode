@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) take(intent)
         setContent {
-            MargyTheme(brain.prefs) {
+            LoopyTheme(brain.prefs) {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) { Root(brain) }
             }
         }
@@ -92,7 +92,6 @@ private fun Root(brain: Brain) {
             screen == "limits" -> LimitsScreen(brain, back)
             screen == "tools" -> ToolsScreen(brain, back)
             screen == "linux" -> LinuxScreen(brain, back)
-            screen == "account" -> AccountScreen(brain, back)
             screen == "local" -> LocalScreen(brain, back)
         }
     }

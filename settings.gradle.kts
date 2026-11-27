@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "MargyCode"
+rootProject.name = "LoopyCode"
 include(":app")

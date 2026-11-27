@@ -3,7 +3,6 @@ package cat.narezany.margycode.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -104,24 +103,14 @@ fun Drawer(brain: Brain, close: () -> Unit) {
         if (uri != null) { brain.importSession(uri); close() }
     }
     ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.width(310.dp)) {
-        // The Margy account on top when signed in, else the app's name with a way in.
-        Row(Modifier.fillMaxWidth().clickable { brain.screens.add("account"); close() }
+        // The app's name on top.
+        Row(Modifier.fillMaxWidth()
             .padding(start = 20.dp, top = 18.dp, bottom = 10.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            val me = brain.margyMe
-            if (me != null) {
-                Avatar(brain, me, 38)
-                Column(Modifier.padding(start = 12.dp)) {
-                    Text(me.display, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("MargyCode", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            } else {
-                Logo(34)
-                Column(Modifier.padding(start = 12.dp)) {
-                    Text("MargyCode", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text(tr("Войти в аккаунт Margy", "Sign in to Margy"), style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary)
-                }
+            Logo(34)
+            Column(Modifier.padding(start = 12.dp)) {
+                Text("LoopyCode", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text(tr("Клиент opencode для телефона", "An opencode client for the phone"), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         NavigationDrawerItem(

@@ -70,7 +70,7 @@ class ClaudeCode(private val context: Context, private val engine: Engine) {
         val c = URL(tarball).openConnection() as HttpURLConnection
         c.connectTimeout = 20_000
         c.readTimeout = 60_000
-        c.setRequestProperty("User-Agent", "MargyCode")
+        c.setRequestProperty("User-Agent", "LoopyCode")
         try {
             if (c.responseCode != 200) error("npm: HTTP ${c.responseCode}")
             val total = c.contentLengthLong
@@ -155,7 +155,7 @@ class ClaudeCode(private val context: Context, private val engine: Engine) {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 20_000
         c.readTimeout = 30_000
-        c.setRequestProperty("User-Agent", "MargyCode")
+        c.setRequestProperty("User-Agent", "LoopyCode")
         if (c.responseCode != 200) error("npm: HTTP ${c.responseCode}")
         return c.inputStream
     }

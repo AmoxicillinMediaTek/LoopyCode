@@ -71,7 +71,7 @@ class Local(private val context: Context) {
             c.connectTimeout = 20_000
             c.readTimeout = 60_000
             c.instanceFollowRedirects = true
-            c.setRequestProperty("User-Agent", "MargyCode")
+            c.setRequestProperty("User-Agent", "LoopyCode")
             if (have > 0) c.setRequestProperty("Range", "bytes=$have-")
             try {
                 val code = c.responseCode
@@ -104,7 +104,7 @@ class Local(private val context: Context) {
         c.requestMethod = "HEAD"
         c.instanceFollowRedirects = true
         c.connectTimeout = 20_000
-        c.setRequestProperty("User-Agent", "MargyCode")
+        c.setRequestProperty("User-Agent", "LoopyCode")
         return try {
             if (c.responseCode !in 200..299) error("Hugging Face: HTTP ${c.responseCode} for ${url.substringAfterLast('/')}")
             c.contentLengthLong

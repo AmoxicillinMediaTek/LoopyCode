@@ -45,9 +45,6 @@ class Brain(app: Application) : AndroidViewModel(app) {
     val engine = Engine(app)
     val api = Api(engine)
     val claude = ClaudeCode(app, engine)
-    val margy = cat.narezany.margycode.data.Margy(app)
-    /** The Margy Store profile, when signed in. */
-    var margyMe by mutableStateOf<cat.narezany.margycode.data.MargyMe?>(null)
     val linux = Linux(app, engine)
     val local = cat.narezany.margycode.engine.Local(app)
     /** What went wrong starting the models on the phone, if anything. */
@@ -105,118 +102,6 @@ class Brain(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch { boot() }
-        viewModelScope.launch { runCatching { margyMe = margy.me() }; syncSoon(1500) }
-    }
-
-    suspend fun margySignIn(google: Boolean, open: (String) -> Unit) {
-        margyMe = if (google) margy.google(open) else margy.telegram(open)
-        syncSoon(500)
-    }
-
-    suspend fun margyEdit(display: String? = null, nick: String? = null, bio: String? = null, dmOpen: Boolean? = null) {
-        margyMe = margy.edit(display, nick, bio, dmOpen)
-    }
-
-    suspend fun margyAvatar(uri: Uri) {
-        val bytes = withContext(Dispatchers.IO) { File(importPicture(uri) ?: error("?")).readBytes() }
-        margy.setAvatar(bytes, "image/jpeg")
-        margyMe = margy.me()
-    }
-
-    suspend fun margyUnlink(what: String) {
-        margy.unlink(what)
-        margyMe = margy.me()
-    }
-
-    // ---- chats on the Margy server ----
-
-    var syncing by mutableStateOf(false)
-        private set
-    var syncError by mutableStateOf<String?>(null)
-        private set
-    private var syncJob: Job? = null
-    private val syncFile get() = File(ctx.filesDir, "sync.json")
-
-    /** What each chat looked like at the last sync, here and on the server: chat id to (local, remote) update times. */
-    private fun syncState(): MutableMap<String, Pair<Long, Long>> = runCatching {
-        val o = JSONObject(syncFile.readText())
-        o.keys().asSequence().associateWith { k -> o.getJSONArray(k).let { it.getLong(0) to it.getLong(1) } }.toMutableMap()
-    }.getOrDefault(mutableMapOf())
-
-    private fun saveSync(state: Map<String, Pair<Long, Long>>) {
-        val o = JSONObject()
-        for ((k, v) in state) o.put(k, JSONArray().put(v.first).put(v.second))
-        syncFile.writeText(o.toString())
-    }
-
-    fun syncSoon(delayMs: Long = 4000) {
-        if (!prefs.sync || margyMe == null) return
-        syncJob?.cancel()
-        syncJob = viewModelScope.launch { delay(delayMs); syncNow() }
-    }
-
-    /**
-     * Two-way, by update times: what changed here goes up, what changed elsewhere comes down
-     * (opencode's own export and import), and a chat deleted on one side goes on the other.
-     */
-    suspend fun syncNow() {
-        if (!prefs.sync || margyMe == null || !ready || syncing) return
-        syncing = true
-        syncError = null
-        try {
-            loadSessions()
-            val state = syncState()
-            val remote = margy.chats().associateBy { it.id }
-            val local = sessions.toList().associateBy { it.id }
-            for ((id, s) in local) {
-                if (busy[id] == true) continue
-                val was = state[id]
-                val r = remote[id]
-                val changedHere = was == null || s.updated > was.first
-                val changedThere = r != null && (was == null || r.updated > was.second)
-                when {
-                    r == null && was != null -> { api.delete("/api/session/$id"); state.remove(id) }
-                    changedThere && (!changedHere || r!!.updated > s.updated) -> {
-                        val got = pull(id)
-                        if (got != null) state[id] = got to r!!.updated
-                    }
-                    changedHere -> {
-                        val data = api.get("/api/experimental/session/$id/export").getJSONObject("data")
-                        margy.putChat(id, s.title, s.updated, data.toString().toByteArray())
-                        state[id] = s.updated to s.updated
-                    }
-                }
-            }
-            for ((id, r) in remote) {
-                if (id in local) continue
-                if (id in state) { margy.deleteChat(id); state.remove(id); continue }
-                val got = pull(id)
-                if (got != null) state[id] = got to r.updated
-            }
-            saveSync(state)
-            loadSessions()
-            open?.let { loadMessages(it) }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            syncError = e.message ?: e.toString()
-        } finally {
-            syncing = false
-        }
-    }
-
-    /** Brings one chat down from the server in place of the local one; returns its new local update time. */
-    private suspend fun pull(id: String): Long? {
-        val o = JSONObject(margy.getChat(id).toString(Charsets.UTF_8)).let { it.optJSONObject("data") ?: it }
-        runCatching { api.delete("/api/session/$id") }
-        val made = api.post("/api/experimental/session/import", jsonOf("info" to o.getJSONObject("info"),
-            "messages" to o.getJSONArray("messages"), "location" to jsonOf("directory" to folder().absolutePath)))
-        return made.optJSONObject("data")?.optJSONObject("time")?.optLong("updated")
-    }
-
-    fun margySignOut() = viewModelScope.launch {
-        margy.signOut()
-        margyMe = null
     }
 
     private suspend fun boot() {
@@ -232,7 +117,6 @@ class Brain(app: Application) : AndroidViewModel(app) {
         engineError = ""
         viewModelScope.launch { listen() }
         refreshAll()
-        syncSoon(1000)
     }
 
     fun restart() {
@@ -367,7 +251,6 @@ class Brain(app: Application) : AndroidViewModel(app) {
             type == "session.execution.started" && sid != null -> { busy[sid] = true; updateService() }
             type.startsWith("session.execution.") && sid != null -> {
                 busy[sid] = false
-                syncSoon()
                 updateService()
                 soonSessions()
                 if (sid == open) { soonMessages(settled = true); return }
@@ -481,10 +364,6 @@ class Brain(app: Application) : AndroidViewModel(app) {
     fun delete(s: Session) = viewModelScope.launch {
         guard {
             api.delete("/api/session/${s.id}")
-            if (prefs.sync && margyMe != null) runCatching {
-                margy.deleteChat(s.id)
-                saveSync(syncState().also { it.remove(s.id) })
-            }
             if (open == s.id) openSession(null)
             loadSessions()
         }
@@ -706,12 +585,12 @@ class Brain(app: Application) : AndroidViewModel(app) {
 
     // ---- the app's own instructions ----
 
-    private val promptFile get() = File(engine.home, ".config/margycode/margycode.md")
+    private val promptFile get() = File(engine.home, ".config/loopycode/loopycode.md")
 
-    /** What the model is told about MargyCode, kept apart from the person's own AGENTS.md. */
+    /** What the model is told about LoopyCode, kept apart from the person's own AGENTS.md. */
     private fun writePrompt() {
         promptFile.parentFile?.mkdirs()
-        val base = ctx.assets.open("margycode.md").use { it.readBytes().toString(Charsets.UTF_8) }
+        val base = ctx.assets.open("loopycode.md").use { it.readBytes().toString(Charsets.UTF_8) }
         val extra = ctx.assets.open(if (linuxActive) "linux.md" else "android.md").use { it.readBytes().toString(Charsets.UTF_8) }
         promptFile.writeText(base + "\n" + extra)
     }

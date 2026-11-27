@@ -1,11 +1,10 @@
 <div align="center">
 
-<img src="assets/banner.png" alt="MargyCode" width="640">
+<img src="assets/banner.png" alt="LoopyCode" width="640">
 
 **An AI client for Android with the real opencode inside.**
 The models, providers and agent of [opencode](https://opencode.ai), in an app made for a phone.
 
-[![store](https://img.shields.io/badge/get%20it-Margy%20Store-1F6B4F?style=flat-square)](https://margy.narez.xyz/app/109)
 [![site](https://img.shields.io/badge/site-margy.narez.xyz-8DD1B0?style=flat-square)](https://margy.narez.xyz)
 [![channel](https://img.shields.io/badge/channel-margymods-8DD1B0?style=flat-square)](https://t.me/margymods)
 [![licence](https://img.shields.io/badge/licence-MIT-8DD1B0?style=flat-square)](#licence)
@@ -14,13 +13,12 @@ The models, providers and agent of [opencode](https://opencode.ai), in an app ma
 
 ---
 
-MargyCode does not imitate opencode. It runs it: the app starts `opencode serve`
+LoopyCode does not imitate opencode. It runs it: the app starts `opencode serve`
 on the phone and talks to it over its HTTP API, the same way opencode's desktop
 app does. So what works in opencode on a computer works here, and the screens
 are drawn for a thumb instead of a terminal.
 
-Android 9 and up, arm64 only. No root. Keys and chats stay on the phone, unless
-you turn on chat sync yourself.
+Android 9 and up, arm64 only. No root. Keys and chats stay on the phone.
 
 ## What it does
 
@@ -101,15 +99,10 @@ you sign in with an OpenCode account, not with a key alone.
 </details>
 
 <details>
-<summary><b>Chats: export, import and sync</b></summary>
+<summary><b>Chats: export and import</b></summary>
 
 Any chat can be saved to a file in opencode's own transfer format and loaded back.
-
-Sign in with your [Margy Store](https://margy.narez.xyz) account, through Telegram
-or Google, and you can turn on sync to get your chats on another phone. It is off
-by default. Other people can't see your synced chats, but they are stored on the
-Margy server without end-to-end encryption, so don't turn it on for anything you
-wouldn't keep on someone else's server.
+Chats live on the phone only; there is no account and nothing is sent to a server.
 </details>
 
 ## How it is built
@@ -142,6 +135,11 @@ each script. `build.sh` signs with a key in `keys/`, which isn't in this
 repository, so make your own. Android will not put your build over the official
 one: remove that first.
 
+`.github/workflows/build.yml` does the compile on every push: JDK 17, the Android
+SDK, Gradle 8.11.1, `:app:assembleDebug`, and the apk as an artifact. The engines
+in `app/src/main/jniLibs` are gitignored, so that apk is the UI without them —
+run the `engine/` scripts first for a build with opencode inside.
+
 ## Licence
 
 MIT, in [LICENSE](LICENSE).
@@ -150,4 +148,4 @@ The apk also carries opencode and Bun (MIT), musl (MIT), llama.cpp (MIT),
 [proot](https://github.com/termux/proot) (GPL-2.0) and talloc (LGPL-3.0), each
 under its own licence. The scripts above fetch and build their exact sources.
 
-MargyCode is not made by or affiliated with opencode, Anthropic, OpenAI or Google.
+LoopyCode is not made by or affiliated with opencode, Anthropic, OpenAI or Google.

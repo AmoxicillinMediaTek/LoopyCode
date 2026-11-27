@@ -18,8 +18,6 @@ data class Prefs(
     val folder: String = "",
     /** Run the agent's commands in Alpine once it is installed. */
     val linux: Boolean = true,
-    /** Keep chats on the Margy server too, for the same account on other phones. */
-    val sync: Boolean = false,
     /** Context for models on the phone: more remembers more but needs more memory. */
     val localContext: Int = 16384,
     /** Models on the phone get opencode's tools too; off, they just talk, with a prompt ten times shorter. */
@@ -34,7 +32,6 @@ data class Prefs(
         "dynamic" to dynamic,
         "folder" to folder,
         "linux" to linux,
-        "sync" to sync,
         "localContext" to localContext,
         "localTools" to localTools,
     )
@@ -53,7 +50,6 @@ data class Prefs(
                 dynamic = o.optBoolean("dynamic"),
                 folder = o.str("folder") ?: "",
                 linux = o.optBoolean("linux", true),
-                sync = o.optBoolean("sync"),
                 localContext = o.optInt("localContext", 16384),
                 localTools = o.optBoolean("localTools"),
             )

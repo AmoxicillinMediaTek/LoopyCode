@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import cat.narezany.margycode.data.Prefs
 
-// MargyT's mint, the same as Margy Store's.
+// the app's mint.
 private val Light = lightColorScheme(
     primary = Color(0xFF1F6B4F), onPrimary = Color.White,
     primaryContainer = Color(0xFFA8F2D0), onPrimaryContainer = Color(0xFF002116),
@@ -37,7 +37,7 @@ private val Dark = darkColorScheme(
 )
 
 @Composable
-fun MargyTheme(prefs: Prefs, content: @Composable () -> Unit) {
+fun LoopyTheme(prefs: Prefs, content: @Composable () -> Unit) {
     val dark = when (prefs.theme) {
         "light" -> false
         "dark" -> true

@@ -33,10 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import cat.narezany.margycode.BuildConfig
 import cat.narezany.margycode.Brain
 import cat.narezany.margycode.tr
 
@@ -46,7 +43,6 @@ fun SettingsScreen(brain: Brain, back: () -> Unit) {
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { rules = withContext(Dispatchers.IO) { brain.rulesFile.takeIf { it.exists() }?.readText().orEmpty() } }
     var wipe by remember { mutableStateOf(false) }
-    val uri = LocalUriHandler.current
     Page(tr("Настройки", "Settings"), back) { mod ->
         Column(mod.verticalScroll(rememberScrollState()).navigationBarsPadding().imePadding()) {
             Section(tr("Оформление", "Look"))
@@ -113,26 +109,6 @@ fun SettingsScreen(brain: Brain, back: () -> Unit) {
                 OutlinedButton({ wipe = true }, enabled = brain.sessions.isNotEmpty()) { Text(tr("Удалить все чаты", "Delete every chat")) }
             }
 
-            Section(tr("О приложении", "About"))
-            Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Logo(44)
-                    Column(Modifier.padding(start = 14.dp)) {
-                        Text("MargyCode ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text("Narezany", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                Text(tr("Внутри работает настоящий opencode 2.2.5 (MIT), собранный под Android на официальном Bun. Ключи и чаты хранятся только на телефоне.",
-                    "Inside runs real opencode 2.2.5 (MIT), built for Android on the official Bun. Keys and chats stay on the phone."),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(tr("Сделано с Claude Opus 5.5", "Made with Claude Opus 5.5"), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton({ uri.openUri("https://narez.xyz") }) { Text("narez.xyz") }
-                    TextButton({ uri.openUri("https://opencode.ai") }) { Text("opencode.ai") }
-                    TextButton({ uri.openUri("https://models.dev") }) { Text("models.dev") }
-                }
-            }
             Spacer(Modifier.height(32.dp))
         }
     }

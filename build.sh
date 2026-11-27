@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds the release apk and signs it with MargyCode's own key (keys/, kept out of git).
+# Builds the release apk and signs it with LoopyCode's own key (keys/, kept out of git).
 # Phone makers' scanners treat apks signed with public debug keys as viruses.
 set -e
 here=$(cd "$(dirname "$0")" && pwd)
@@ -10,7 +10,7 @@ cd "$here"
 "$gradle" -q :app:assembleRelease
 version=$(grep -o 'versionName = "[^"]*"' app/build.gradle.kts | cut -d'"' -f2)
 mkdir -p out
-apk="out/margycode-$version.apk"
+apk="out/loopycode-$version.apk"
 cp app/build/outputs/apk/release/app-release-unsigned.apk "$apk"
 pass=$(cat keys/margycode.pass)
 java -jar "${SIGNER:-$HOME/MargyT/tools/uber-apk-signer.jar}" -a "$apk" --allowResign --overwrite \

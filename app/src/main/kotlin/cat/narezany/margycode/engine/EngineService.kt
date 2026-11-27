@@ -30,7 +30,7 @@ class EngineService : Service() {
         val n = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(tr("Модель отвечает", "The model is answering"))
-            .setContentText(tr("MargyCode доделает ответ в фоне", "MargyCode finishes the answer in the background"))
+            .setContentText(tr("LoopyCode доделает ответ в фоне", "LoopyCode finishes the answer in the background"))
             .setContentIntent(open)
             .setOngoing(true)
             .build()

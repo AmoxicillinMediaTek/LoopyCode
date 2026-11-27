@@ -151,7 +151,7 @@ fun ChatScreen(brain: Brain, openDrawer: () -> Unit) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(model?.name ?: if (brain.ready) tr("Выберите модель", "Pick a model") else "MargyCode",
+                        Text(model?.name ?: if (brain.ready) tr("Выберите модель", "Pick a model") else "LoopyCode",
                             style = MaterialTheme.typography.titleMedium,
                             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 220.dp))
                         if (brain.ready) Icon(Icons.Outlined.KeyboardArrowDown, null, Modifier.size(20.dp))
