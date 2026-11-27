@@ -1,4 +1,4 @@
-package cat.narezany.margycode.ui
+package app.amoxi.loopycode.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -63,11 +63,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cat.narezany.margycode.Brain
-import cat.narezany.margycode.data.Integration
-import cat.narezany.margycode.data.objects
-import cat.narezany.margycode.data.str
-import cat.narezany.margycode.tr
+import app.amoxi.loopycode.Brain
+import app.amoxi.loopycode.data.Integration
+import app.amoxi.loopycode.data.objects
+import app.amoxi.loopycode.data.str
+import app.amoxi.loopycode.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

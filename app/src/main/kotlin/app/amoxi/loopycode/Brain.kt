@@ -1,4 +1,4 @@
-package cat.narezany.margycode
+package app.amoxi.loopycode
 
 import android.app.Application
 import android.graphics.Bitmap
@@ -13,21 +13,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import cat.narezany.margycode.data.Ask
-import cat.narezany.margycode.data.Integration
-import cat.narezany.margycode.data.Message
-import cat.narezany.margycode.data.Model
-import cat.narezany.margycode.data.Part
-import cat.narezany.margycode.data.Prefs
-import cat.narezany.margycode.data.Session
-import cat.narezany.margycode.data.jsonOf
-import cat.narezany.margycode.data.objects
-import cat.narezany.margycode.data.str
-import cat.narezany.margycode.engine.Api
-import cat.narezany.margycode.engine.ClaudeCode
-import cat.narezany.margycode.engine.Engine
-import cat.narezany.margycode.engine.Linux
-import cat.narezany.margycode.engine.EngineService
+import app.amoxi.loopycode.data.Ask
+import app.amoxi.loopycode.data.Integration
+import app.amoxi.loopycode.data.Message
+import app.amoxi.loopycode.data.Model
+import app.amoxi.loopycode.data.Part
+import app.amoxi.loopycode.data.Prefs
+import app.amoxi.loopycode.data.Session
+import app.amoxi.loopycode.data.jsonOf
+import app.amoxi.loopycode.data.objects
+import app.amoxi.loopycode.data.str
+import app.amoxi.loopycode.engine.Api
+import app.amoxi.loopycode.engine.ClaudeCode
+import app.amoxi.loopycode.engine.Engine
+import app.amoxi.loopycode.engine.Linux
+import app.amoxi.loopycode.engine.EngineService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,7 +46,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
     val api = Api(engine)
     val claude = ClaudeCode(app, engine)
     val linux = Linux(app, engine)
-    val local = cat.narezany.margycode.engine.Local(app)
+    val local = app.amoxi.loopycode.engine.Local(app)
     /** What went wrong starting the models on the phone, if anything. */
     var localError by mutableStateOf<String?>(null)
         private set
@@ -303,7 +303,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
 
     fun model(ref: String?) = models.firstOrNull { it.ref == ref }
 
-    fun providerName(id: String) = if (id == cat.narezany.margycode.engine.Local.PROVIDER) tr("На телефоне", "On the phone")
+    fun providerName(id: String) = if (id == app.amoxi.loopycode.engine.Local.PROVIDER) tr("На телефоне", "On the phone")
         else integrations.firstOrNull { it.id == id }?.name ?: id
 
     fun session(id: String? = open) = sessions.firstOrNull { it.id == id }
@@ -332,7 +332,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
         if (session()?.model == m.ref) viewModelScope.launch { guard { api.post("/api/session/$id/model", jsonOf("model" to ref(m))) } }
     }
 
-    fun isLocal(m: Model) = m.provider == cat.narezany.margycode.engine.Local.PROVIDER
+    fun isLocal(m: Model) = m.provider == app.amoxi.loopycode.engine.Local.PROVIDER
 
     /** opencode's own agent with tools, or the plain chat for models on the phone unless asked otherwise. */
     fun agentFor(m: Model) = if (isLocal(m) && !prefs.localTools) "chat" else "build"
@@ -466,7 +466,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
                 "location" to jsonOf("directory" to folder().absolutePath))
             val made = try {
                 api.post("/api/experimental/session/import", body)
-            } catch (e: cat.narezany.margycode.engine.ApiError) {
+            } catch (e: app.amoxi.loopycode.engine.ApiError) {
                 if (e.code == 409) error(tr("Этот диалог уже есть в приложении", "This chat is already in the app")) else throw e
             }
             loadSessions()
@@ -597,7 +597,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
 
     private fun builtIn(): String {
         val o = jsonOf("instructions" to JSONArray().put(promptFile.absolutePath))
-        local.provider(prefs.localContext)?.let { o.put("providers", jsonOf(cat.narezany.margycode.engine.Local.PROVIDER to it)) }
+        local.provider(prefs.localContext)?.let { o.put("providers", jsonOf(app.amoxi.loopycode.engine.Local.PROVIDER to it)) }
         // A plain conversation without tools: opencode then sends ~600 tokens instead of ~6000, which on a
         // phone's processor is the difference between seconds and minutes before the first word.
         o.put("agents", jsonOf("chat" to jsonOf(

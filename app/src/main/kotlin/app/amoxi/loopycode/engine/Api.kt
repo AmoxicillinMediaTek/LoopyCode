@@ -1,6 +1,6 @@
-package cat.narezany.margycode.engine
+package app.amoxi.loopycode.engine
 
-import cat.narezany.margycode.data.str
+import app.amoxi.loopycode.data.str
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext

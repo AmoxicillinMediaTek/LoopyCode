@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "cat.narezany.margycode"
+    namespace = "app.amoxi.loopycode"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "cat.narezany.margycode"
+        applicationId = "app.amoxi.loopycode"
         minSdk = 28
         targetSdk = 35
         versionCode = 1

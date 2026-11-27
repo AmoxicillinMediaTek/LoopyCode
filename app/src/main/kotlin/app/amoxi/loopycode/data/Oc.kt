@@ -1,4 +1,4 @@
-package cat.narezany.margycode.data
+package app.amoxi.loopycode.data
 
 import org.json.JSONObject
 

@@ -1,4 +1,4 @@
-package cat.narezany.margycode.ui
+package app.amoxi.loopycode.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -54,10 +54,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cat.narezany.margycode.Brain
-import cat.narezany.margycode.R
-import cat.narezany.margycode.data.Session
-import cat.narezany.margycode.tr
+import app.amoxi.loopycode.Brain
+import app.amoxi.loopycode.R
+import app.amoxi.loopycode.data.Session
+import app.amoxi.loopycode.tr
 import java.util.Calendar
 
 @Composable

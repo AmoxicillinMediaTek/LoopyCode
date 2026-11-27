@@ -1,4 +1,4 @@
-package cat.narezany.margycode.engine
+package app.amoxi.loopycode.engine
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -10,9 +10,9 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
-import cat.narezany.margycode.R
-import cat.narezany.margycode.tr
-import cat.narezany.margycode.ui.MainActivity
+import app.amoxi.loopycode.R
+import app.amoxi.loopycode.tr
+import app.amoxi.loopycode.ui.MainActivity
 
 /**
  * Keeps the app, and opencode with it, awake while a model is answering, so

@@ -1,4 +1,4 @@
-package cat.narezany.margycode
+package app.amoxi.loopycode
 
 import java.util.Locale
 

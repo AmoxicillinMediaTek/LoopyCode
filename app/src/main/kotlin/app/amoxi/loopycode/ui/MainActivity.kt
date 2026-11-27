@@ -1,4 +1,4 @@
-package cat.narezany.margycode.ui
+package app.amoxi.loopycode.ui
 
 import android.content.Intent
 import android.net.Uri
@@ -24,7 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
-import cat.narezany.margycode.Brain
+import app.amoxi.loopycode.Brain
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {

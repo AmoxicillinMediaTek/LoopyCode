@@ -1,8 +1,8 @@
-package cat.narezany.margycode.engine
+package app.amoxi.loopycode.engine
 
 import android.content.Context
 import android.net.ConnectivityManager
-import cat.narezany.margycode.data.str
+import app.amoxi.loopycode.data.str
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject

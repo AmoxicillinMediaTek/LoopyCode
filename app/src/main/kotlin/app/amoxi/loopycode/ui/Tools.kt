@@ -1,4 +1,4 @@
-package cat.narezany.margycode.ui
+package app.amoxi.loopycode.ui
 
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -46,10 +46,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cat.narezany.margycode.Brain
-import cat.narezany.margycode.data.jsonOf
-import cat.narezany.margycode.data.str
-import cat.narezany.margycode.tr
+import app.amoxi.loopycode.Brain
+import app.amoxi.loopycode.data.jsonOf
+import app.amoxi.loopycode.data.str
+import app.amoxi.loopycode.tr
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject

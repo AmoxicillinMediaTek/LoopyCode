@@ -1,4 +1,4 @@
-package cat.narezany.margycode.ui
+package app.amoxi.loopycode.ui
 
 import android.os.Build
 import androidx.compose.foundation.clickable
@@ -34,8 +34,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import cat.narezany.margycode.Brain
-import cat.narezany.margycode.tr
+import app.amoxi.loopycode.Brain
+import app.amoxi.loopycode.tr
 
 @Composable
 fun SettingsScreen(brain: Brain, back: () -> Unit) {

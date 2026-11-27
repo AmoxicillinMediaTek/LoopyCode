@@ -1,4 +1,4 @@
-package cat.narezany.margycode.ui
+package app.amoxi.loopycode.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -37,9 +37,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import cat.narezany.margycode.Brain
-import cat.narezany.margycode.data.Model
-import cat.narezany.margycode.tr
+import app.amoxi.loopycode.Brain
+import app.amoxi.loopycode.data.Model
+import app.amoxi.loopycode.tr
 
 fun contextLabel(n: Long) = when {
     n >= 1_000_000 -> "${"%.1f".format(n / 1e6).removeSuffix(".0").removeSuffix(",0")}M"

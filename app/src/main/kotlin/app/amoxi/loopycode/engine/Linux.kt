@@ -1,4 +1,4 @@
-package cat.narezany.margycode.engine
+package app.amoxi.loopycode.engine
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers

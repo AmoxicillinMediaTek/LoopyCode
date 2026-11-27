@@ -1,4 +1,4 @@
-package cat.narezany.margycode.ui
+package app.amoxi.loopycode.ui
 
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -101,11 +101,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cat.narezany.margycode.Brain
-import cat.narezany.margycode.data.Message
-import cat.narezany.margycode.data.Part
-import cat.narezany.margycode.data.str
-import cat.narezany.margycode.tr
+import app.amoxi.loopycode.Brain
+import app.amoxi.loopycode.data.Message
+import app.amoxi.loopycode.data.Part
+import app.amoxi.loopycode.data.str
+import app.amoxi.loopycode.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

@@ -1,4 +1,4 @@
-package cat.narezany.margycode.ui
+package app.amoxi.loopycode.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll

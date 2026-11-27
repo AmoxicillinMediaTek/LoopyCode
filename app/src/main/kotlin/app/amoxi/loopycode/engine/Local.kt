@@ -1,9 +1,9 @@
-package cat.narezany.margycode.engine
+package app.amoxi.loopycode.engine
 
 import android.app.ActivityManager
 import android.content.Context
-import cat.narezany.margycode.data.jsonOf
-import cat.narezany.margycode.tr
+import app.amoxi.loopycode.data.jsonOf
+import app.amoxi.loopycode.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
