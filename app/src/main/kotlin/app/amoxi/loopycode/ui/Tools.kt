@@ -138,8 +138,8 @@ fun ToolsScreen(brain: Brain, back: () -> Unit) {
             }
 
             Section("MCP")
-            Text(tr("Серверы с дополнительными инструментами для модели. Удалённые работают по адресу; локальным нужна программа на телефоне.",
-                "Servers with extra tools for the model. Remote ones work by address; local ones need a program on the phone."),
+            Text(tr("Серверы с дополнительными инструментами для модели. Удалённые работают по адресу; локальные запускаются внутри Alpine.",
+                "Servers with extra tools for the model. Remote ones work by address; local ones run inside Alpine."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp))
             val mcp = servers
@@ -199,8 +199,8 @@ private fun McpDialog(onDone: (String, JSONObject) -> Unit, onCancel: () -> Unit
                         minLines = 2, textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                         modifier = Modifier.fillMaxWidth())
                 } else {
-                    OutlinedTextField(command, { command = it }, label = { Text(tr("Команда", "Command")) },
-                        placeholder = { Text("python3 server.py") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(command, { command = it }, label = { Text(tr("Команда Alpine", "Alpine command")) },
+                        placeholder = { Text("npx -y @example/mcp-server") }, modifier = Modifier.fillMaxWidth())
                 }
             }
         },

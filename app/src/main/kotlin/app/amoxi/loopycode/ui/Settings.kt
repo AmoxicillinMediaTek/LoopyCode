@@ -95,9 +95,8 @@ fun SettingsScreen(brain: Brain, back: () -> Unit) {
                 Column(Modifier.weight(1f)) {
                     Text(tr("Linux для модели", "Linux for the model"))
                     Text(when {
-                        !brain.linux.installed -> tr("Не установлен: команды идут в оболочку Android", "Not installed: commands go to Android's shell")
-                        brain.prefs.linux -> "Alpine ${brain.linux.version.orEmpty()}"
-                        else -> tr("Установлен, выключен", "Installed, off")
+                        !brain.linuxInstalled -> tr("Установка Alpine…", "Installing Alpine…")
+                        else -> "Alpine ${brain.linux.version.orEmpty()}"
                     }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }

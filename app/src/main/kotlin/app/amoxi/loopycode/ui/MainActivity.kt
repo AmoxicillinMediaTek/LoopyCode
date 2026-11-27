@@ -99,6 +99,7 @@ private fun Root(brain: Brain) {
     AnimatedContent(top, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "screen") { screen ->
         val back = { if (brain.screens.isNotEmpty()) brain.screens.removeAt(brain.screens.lastIndex) }
         when {
+            !brain.linuxInstalled -> LinuxInstallScreen(brain)
             screen == null -> ModalNavigationDrawer(
                 drawerState = drawer,
                 drawerContent = { Drawer(brain) { scope.launch { drawer.close() } } },

@@ -597,8 +597,7 @@ private fun ContextRing(brain: Brain) {
                 onClick = { menu = false; brain.compact() },
             )
             DropdownMenuItem(
-                text = { Text(if (brain.prefs.autoCompact) tr("Сжимать при 80%: вкл", "Compact at 80%: on")
-                    else tr("Сжимать при 80%: выкл", "Compact at 80%: off")) },
+                text = { Text("AutoCompact: " + if (brain.prefs.autoCompact) tr("вкл", "on") else tr("выкл", "off")) },
                 onClick = { menu = false; brain.update { it.copy(autoCompact = !it.autoCompact) } },
             )
         }

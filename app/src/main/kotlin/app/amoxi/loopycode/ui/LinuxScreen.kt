@@ -3,9 +3,11 @@ package app.amoxi.loopycode.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -20,9 +22,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,9 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,21 +45,43 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.amoxi.loopycode.Brain
 import app.amoxi.loopycode.tr
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/** Alpine Linux for the agent: install, switch on or off, and a small console for one's own commands. */
+/** Installation is automatic; this gate keeps the agent from starting without Alpine. */
+@Composable
+fun LinuxInstallScreen(brain: Brain) {
+    val progress = brain.linuxProgress
+    Box(Modifier.fillMaxSize().navigationBarsPadding().padding(32.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("LoopyCode", style = MaterialTheme.typography.headlineMedium)
+            Text(tr("Устанавливаем Alpine Linux", "Installing Alpine Linux"), style = MaterialTheme.typography.titleMedium)
+            Text(tr("Подготавливаем среду для локальных MCP-серверов и команд модели. Это нужно только при первом запуске.",
+                "Preparing the environment for local MCP servers and model commands. This only happens on first launch."),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LinearProgressIndicator(progress ?: 0f, Modifier.fillMaxWidth())
+            Text(if (progress == null) tr("Начинаем загрузку…", "Starting download…")
+                else tr("Скачиваем Alpine: ${(progress * 100).toInt()}%", "Downloading Alpine: ${(progress * 100).toInt()}%"),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            brain.linuxError?.let { error ->
+                Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                androidx.compose.material3.Button(onClick = { brain.retryLinuxInstall() }) {
+                    Text(tr("Повторить", "Retry"))
+                }
+            }
+        }
+    }
+}
+
+/** Alpine Linux for the agent, with a small console for one's own commands. */
 @Composable
 fun LinuxScreen(brain: Brain, back: () -> Unit) {
     val linux = brain.linux
     val scope = rememberCoroutineScope()
-    var installed by remember { mutableStateOf(linux.installed) }
-    var progress by remember { mutableStateOf<Float?>(null) }
+    val installed = linux.installed
     var problem by remember { mutableStateOf<String?>(null) }
     var command by remember { mutableStateOf("") }
     var log by remember { mutableStateOf("") }
     var running by remember { mutableStateOf(false) }
-    var removing by remember { mutableStateOf(false) }
 
     fun run(cmd: String) {
         if (cmd.isBlank() || running) return
@@ -83,39 +102,17 @@ fun LinuxScreen(brain: Brain, back: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             if (!installed) {
-                val p = progress
-                if (p != null) {
-                    LinearProgressIndicator({ p }, Modifier.fillMaxWidth())
-                    Text(if (p < 1f) tr("Скачиваю Alpine: ${(p * 100).toInt()}%", "Downloading Alpine: ${(p * 100).toInt()}%")
-                        else tr("Распаковываю…", "Unpacking…"), style = MaterialTheme.typography.bodySmall)
-                } else Button({
-                    progress = 0f
-                    problem = null
-                    scope.launch {
-                        runCatching {
-                            linux.install { done, total -> if (total > 0) scope.launch(Dispatchers.Main) { progress = done.toFloat() / total } }
-                        }.onSuccess {
-                            installed = true
-                            brain.restart()
-                        }.onFailure { problem = it.message ?: it.toString() }
-                        progress = null
-                    }
-                }) {
-                    Icon(Icons.Outlined.Download, null, Modifier.size(18.dp))
-                    Text(tr("Установить Alpine Linux (около 4 МБ)", "Install Alpine Linux (about 4 MB)"), Modifier.padding(start = 8.dp))
+                val p = brain.linuxProgress
+                LinearProgressIndicator(p ?: 0f, Modifier.fillMaxWidth())
+                Text(if (p == null) tr("Alpine устанавливается автоматически…", "Alpine is installing automatically…")
+                    else tr("Скачиваю Alpine: ${(p * 100).toInt()}%", "Downloading Alpine: ${(p * 100).toInt()}%"),
+                    style = MaterialTheme.typography.bodySmall)
+                brain.linuxError?.let { error ->
+                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             } else {
-                Row(Modifier.fillMaxWidth().clickable {
-                    brain.update { it.copy(linux = !it.linux) }
-                    brain.restart()
-                }, verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(tr("Команды модели в Linux", "Model's commands in Linux"))
-                        Text("Alpine ${linux.version.orEmpty()}", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(brain.prefs.linux, { v -> brain.update { it.copy(linux = v) }; brain.restart() })
-                }
+                Text("Alpine ${linux.version.orEmpty()} · " + tr("команды модели запускаются здесь", "model commands run here"),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 Section(tr("Консоль", "Console"))
                 Text(tr("Каждая команда запускается отдельно в папке приложения. Например: apk add python3",
@@ -142,7 +139,6 @@ fun LinuxScreen(brain: Brain, back: () -> Unit) {
                     OutlinedButton({ run("cat /etc/alpine-release; uname -m; apk --version") }, enabled = !running) {
                         Text(tr("Проверить", "Check"))
                     }
-                    TextButton({ removing = true }) { Text(tr("Удалить Linux", "Remove Linux")) }
                 }
             }
             problem?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
@@ -150,20 +146,4 @@ fun LinuxScreen(brain: Brain, back: () -> Unit) {
         }
     }
 
-    if (removing) AlertDialog(
-        onDismissRequest = { removing = false },
-        title = { Text(tr("Удалить Linux?", "Remove Linux?")) },
-        text = { Text(tr("Удалится всё, что установлено внутри (пакеты, /root). Ваши папки на телефоне не тронутся.",
-            "Everything installed inside goes (packages, /root). Your folders on the phone stay.")) },
-        confirmButton = {
-            TextButton({
-                removing = false
-                scope.launch(Dispatchers.IO) {
-                    linux.remove()
-                    launch(Dispatchers.Main) { installed = false; log = ""; brain.restart() }
-                }
-            }) { Text(tr("Удалить", "Remove")) }
-        },
-        dismissButton = { TextButton({ removing = false }) { Text(tr("Отмена", "Cancel")) } },
-    )
 }

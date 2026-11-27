@@ -16,8 +16,6 @@ data class Prefs(
     val dynamic: Boolean = false,
     /** Where new chats work; empty means the app's own workspace. */
     val folder: String = "",
-    /** Run the agent's commands in Alpine once it is installed. */
-    val linux: Boolean = true,
     /** Context for models on the phone: more remembers more but needs more memory. */
     val localContext: Int = 16384,
     /** Models on the phone get opencode's tools too; off, they just talk, with a prompt ten times shorter. */
@@ -33,7 +31,6 @@ data class Prefs(
         "theme" to theme,
         "dynamic" to dynamic,
         "folder" to folder,
-        "linux" to linux,
         "localContext" to localContext,
         "localTools" to localTools,
         "autoCompact" to autoCompact,
@@ -52,7 +49,6 @@ data class Prefs(
                 theme = o.str("theme") ?: "system",
                 dynamic = o.optBoolean("dynamic"),
                 folder = o.str("folder") ?: "",
-                linux = o.optBoolean("linux", true),
                 localContext = o.optInt("localContext", 16384),
                 localTools = o.optBoolean("localTools"),
                 autoCompact = o.optBoolean("autoCompact", true),

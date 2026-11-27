@@ -22,8 +22,8 @@ class Linux(private val context: Context, private val engine: Engine) {
     val version get() = File(rootfs, "etc/alpine-release").takeIf { it.exists() }?.readText()?.trim()
 
     /** opencode runs its commands through SHELL, so pointing it here moves them all into Alpine. */
-    fun env(enabled: Boolean): Map<String, String> {
-        if (!enabled || !installed) return emptyMap()
+    fun env(): Map<String, String> {
+        if (!installed) return emptyMap()
         val tmp = File(context.cacheDir, "proot").apply { mkdirs() }
         return mapOf(
             "SHELL" to "$libs/liblinux.so",
@@ -96,7 +96,7 @@ class Linux(private val context: Context, private val engine: Engine) {
     suspend fun run(command: String, servers: String): String = withContext(Dispatchers.IO) {
         writeResolv(servers)
         val pb = ProcessBuilder("$libs/liblinux.so", "-c", command).directory(engine.workspace).redirectErrorStream(true)
-        pb.environment().putAll(engine.baseEnv() + env(true))
+        pb.environment().putAll(engine.baseEnv() + env())
         val p = pb.start()
         p.outputStream.close()
         val text = p.inputStream.bufferedReader().readText()

@@ -50,20 +50,27 @@ class Brain(app: Application) : AndroidViewModel(app) {
     val claude = ClaudeCode(app, engine)
     val linux = Linux(app, engine)
     val local = Local(app)
+    var linuxInstalled by mutableStateOf(linux.installed)
+        private set
+    var linuxProgress by mutableStateOf<Float?>(null)
+        private set
+    var linuxError by mutableStateOf<String?>(null)
+        private set
     /** What went wrong starting the models on the phone, if anything. */
     var localError by mutableStateOf<String?>(null)
         private set
 
     init {
-        engine.extraEnv = { claude.env() + linux.env(prefs.linux) + mapOf("OPENCODE_CONFIG_CONTENT" to builtIn()) }
+        engine.extraEnv = { claude.env() + linux.env() + mapOf("OPENCODE_CONFIG_CONTENT" to builtIn()) }
         engine.beforeStart = {
             claude.writeResolv()
             linux.writeResolv(claude.dns())
+            prepareMcp()
             writePrompt()
         }
     }
 
-    val linuxActive get() = prefs.linux && linux.installed
+    val linuxActive get() = linuxInstalled
 
     /** null while starting, "" when ready, else what went wrong. */
     var engineError by mutableStateOf<String?>(null)
@@ -127,6 +134,24 @@ class Brain(app: Application) : AndroidViewModel(app) {
 
     private suspend fun boot() {
         engineError = null
+        if (!linux.installed) {
+            linuxError = null
+            linuxProgress = 0f
+            try {
+                linux.install { done, total -> linuxProgress = if (total > 0) done.toFloat() / total else null }
+            } catch (e: Exception) {
+                linuxError = e.message ?: e.toString()
+                linuxProgress = null
+                return
+            }
+            linuxInstalled = linux.installed
+            if (!linuxInstalled) {
+                linuxError = "Alpine installation did not complete. Please retry."
+                linuxProgress = null
+                return
+            }
+            linuxProgress = null
+        }
         // one stream at a time: the previous boot's listener goes before the engine is touched again
         listener?.cancel()
         val gen = ++generation
@@ -146,6 +171,15 @@ class Brain(app: Application) : AndroidViewModel(app) {
     fun restart() {
         engine.stop()
         local.stop()
+        linuxProgress = null
+        linuxError = null
+        viewModelScope.launch { boot() }
+    }
+
+    fun retryLinuxInstall() {
+        if (linuxProgress != null) return
+        linuxError = null
+        linuxProgress = 0f
         viewModelScope.launch { boot() }
     }
 
@@ -690,8 +724,45 @@ class Brain(app: Application) : AndroidViewModel(app) {
     suspend fun addMcp(name: String, server: JSONObject) {
         val c = readConfig()
         val mcp = c.optJSONObject("mcp") ?: JSONObject().also { c.put("mcp", it) }
-        mcp.put(name, server)
+        mcp.put(name, wrapLocalMcp(server))
         saveConfig(c.toString(2))
+    }
+
+    /** MCP stdio processes are spawned directly, so route their command through Alpine explicitly. */
+    private fun wrapLocalMcp(server: JSONObject): JSONObject {
+        if (server.optString("type") != "local") return server
+        val command = server.optJSONArray("command") ?: return server
+        val first = command.optString(0)
+        if (first == linuxShell) return server
+        val wrapped = JSONArray().put(linuxShell).put("-c").put("exec \"\$0\" \"\$@\"").put(first)
+        for (i in 1 until command.length()) wrapped.put(command.optString(i))
+        val copy = JSONObject(server.toString()).put("command", wrapped)
+        val environment = copy.optJSONObject("environment") ?: JSONObject().also { copy.put("environment", it) }
+        val linuxEnv = linux.env()
+        for (key in listOf("MARGY_PROOT", "MARGY_PROOT_LOADER", "MARGY_PROOT_TMP", "MARGY_ROOTFS", "MARGY_FILES", "MARGY_CACHE")) {
+            linuxEnv[key]?.let { environment.put(key, it) }
+        }
+        environment.put("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/system/bin")
+        environment.put("HOME", "/root")
+        environment.put("TMPDIR", "/tmp")
+        return copy
+    }
+
+    private val linuxShell get() = "${ctx.applicationInfo.nativeLibraryDir}/liblinux.so"
+
+    private fun prepareMcp() {
+        if (!linux.installed || !configFile.exists()) return
+        val config = runCatching { JSONObject(configFile.readText()) }.getOrNull() ?: return
+        val mcp = config.optJSONObject("mcp") ?: return
+        var changed = false
+        for (name in mcp.keys()) {
+            val server = mcp.optJSONObject(name) ?: continue
+            val command = server.optJSONArray("command")
+            if (server.optString("type") == "local" && command != null && command.optString(0) == linuxShell) continue
+            val wrapped = wrapLocalMcp(server)
+            if (wrapped !== server) { mcp.put(name, wrapped); changed = true }
+        }
+        if (changed) configFile.writeText(config.toString(2))
     }
 
     suspend fun removeMcp(name: String) {
@@ -717,10 +788,16 @@ class Brain(app: Application) : AndroidViewModel(app) {
         local.provider(prefs.localContext)?.let { o.put("providers", jsonOf(Local.PROVIDER to it)) }
         // A plain conversation without tools: opencode then sends ~600 tokens instead of ~6000, which on a
         // phone's processor is the difference between seconds and minutes before the first word.
+        val chatPermissions = JSONArray().put(jsonOf("action" to "*", "resource" to "*", "effect" to "deny"))
+        val mcp = runCatching { JSONObject(configFile.readText()).optJSONObject("mcp") }.getOrNull()
+        mcp?.keys()?.forEach { name ->
+            val safeName = name.replace(Regex("[^a-zA-Z0-9_-]"), "_")
+            chatPermissions.put(jsonOf("action" to "${safeName}_*", "resource" to "*", "effect" to "allow"))
+        }
         o.put("agents", jsonOf("chat" to jsonOf(
             "description" to "Conversation without tools",
             "mode" to "primary",
-            "permissions" to JSONArray().put(jsonOf("action" to "*", "resource" to "*", "effect" to "deny")),
+            "permissions" to chatPermissions,
         )))
         return o.toString()
     }
