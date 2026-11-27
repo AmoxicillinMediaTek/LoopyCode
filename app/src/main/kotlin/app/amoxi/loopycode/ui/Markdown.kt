@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Done
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -161,17 +162,21 @@ private fun inline(source: String, link: Color, shade: Color): AnnotatedString =
     walk(source)
 }
 
+/** Written once per piece of text: reading a message again, as a scroll or a redraw does, costs nothing. */
+@Composable
+private fun rich(s: String, scheme: ColorScheme): AnnotatedString =
+    remember(s, scheme) { inline(s, scheme.primary, scheme.surfaceContainerHighest) }
+
 /** Markdown as models write it: paragraphs, headings, lists, quotes, tables and code with a copy button. */
 @Composable
 fun Markdown(text: String, modifier: Modifier = Modifier, colour: Color = MaterialTheme.colorScheme.onSurface) {
     val parsed = remember(text) { blocks(text) }
     val scheme = MaterialTheme.colorScheme
     val body = MaterialTheme.typography.bodyLarge.copy(color = colour)
-    fun rich(s: String) = inline(s, scheme.primary, scheme.surfaceContainerHighest)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         for (b in parsed) when (b) {
-            is Block.Para -> Text(rich(b.text), style = body)
-            is Block.Heading -> Text(rich(b.text), style = when (b.level) {
+            is Block.Para -> Text(rich(b.text, scheme), style = body)
+            is Block.Heading -> Text(rich(b.text, scheme), style = when (b.level) {
                 1 -> MaterialTheme.typography.titleLarge
                 2 -> MaterialTheme.typography.titleMedium.copy(fontSize = 19.sp)
                 else -> MaterialTheme.typography.titleMedium
@@ -179,14 +184,14 @@ fun Markdown(text: String, modifier: Modifier = Modifier, colour: Color = Materi
             is Block.Item -> Row(Modifier.padding(start = (b.depth * 18).dp)) {
                 Text(b.marker, style = body, modifier = Modifier.width(if (b.marker == "•") 18.dp else 26.dp),
                     color = if (b.marker == "•") scheme.primary else colour)
-                Text(rich(b.text), style = body)
+                Text(rich(b.text, scheme), style = body)
             }
             is Block.Quote -> Row(Modifier.height(IntrinsicSize.Min)) {
                 Box(Modifier.width(3.dp).fillMaxHeight().background(scheme.primary, RoundedCornerShape(2.dp)))
-                Text(rich(b.text), style = body.copy(color = scheme.onSurfaceVariant), modifier = Modifier.padding(start = 10.dp))
+                Text(rich(b.text, scheme), style = body.copy(color = scheme.onSurfaceVariant), modifier = Modifier.padding(start = 10.dp))
             }
             is Block.Code -> CodeBlock(b.lang, b.text)
-            is Block.Table -> TableBlock(b.rows) { rich(it) }
+            is Block.Table -> TableBlock(b.rows) { rich(it, scheme) }
             Block.Rule -> HorizontalDivider(Modifier.padding(vertical = 4.dp))
         }
     }
@@ -217,7 +222,7 @@ private fun CodeBlock(lang: String, code: String) {
 
 /** Columns as wide as their widest cell (up to a limit), rows as tall as their tallest; scrolls sideways. */
 @Composable
-private fun TableBlock(rows: List<List<String>>, rich: (String) -> AnnotatedString) {
+private fun TableBlock(rows: List<List<String>>, rich: @Composable (String) -> AnnotatedString) {
     val scheme = MaterialTheme.colorScheme
     val columns = rows.maxOf { it.size }
     Surface(shape = RoundedCornerShape(12.dp), color = scheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {

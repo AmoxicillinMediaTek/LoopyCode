@@ -79,6 +79,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -176,19 +177,21 @@ fun ChatScreen(brain: Brain, openDrawer: () -> Unit) {
         )
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            val shown = brain.shown()
+            val shown by remember { derivedStateOf { brain.shown() } }
             when {
                 !brain.ready -> Starting(brain)
                 id == null || shown.isEmpty() -> Welcome(brain)
                 else -> {
                     val list = rememberLazyListState()
                     LaunchedEffect(shown.size) { list.animateScrollToItem(0) }
-                    val lastAnswer = shown.lastOrNull { it.role == "assistant" }?.id
+                    val lastAnswer = remember(shown) { shown.lastOrNull { it.role == "assistant" }?.id }
                     // a failed turn ends with the error twice: on the answer and on the turn's end
-                    val repeated = shown.indices.filter { i ->
-                        shown[i].role == "idle" && shown[i].error != null && shown.getOrNull(i - 1)?.error != null
-                    }.map { shown[it].id }.toSet()
-                    val reversed = shown.filter { it.id !in repeated }.asReversed()
+                    val reversed = remember(shown) {
+                        val repeated = shown.indices.filter { i ->
+                            shown[i].role == "idle" && shown[i].error != null && shown.getOrNull(i - 1)?.error != null
+                        }.map { shown[it].id }.toSet()
+                        shown.filter { it.id !in repeated }.asReversed()
+                    }
                     LazyColumn(state = list, reverseLayout = true, modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -100,6 +100,12 @@ class Brain(app: Application) : AndroidViewModel(app) {
      */
     private class Live(val message: String, val reasoning: Boolean, val ordinal: Int, val text: String)
     private val live = mutableStateListOf<Live>()
+    /** Words on their way to the screen, gathered so a burst of deltas costs one redraw rather than dozens. */
+    private class Draft(val message: String, val reasoning: Boolean, val ordinal: Int) {
+        val text = StringBuilder()
+    }
+    private val drafts = LinkedHashMap<String, Draft>()
+    private var flushing = false
     private var refetchMessages: Job? = null
     private var refetchSessions: Job? = null
     /** The event stream has one owner: a restart takes the old one down instead of adding another. */
@@ -228,7 +234,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
             delay(120)
             guard { loadMessages(id) }
             // once a turn is over the stored messages hold everything that streamed
-            if (settled && busy[id] != true) live.clear()
+            if (settled && busy[id] != true) { drafts.clear(); live.clear() }
         }
     }
 
@@ -272,10 +278,10 @@ class Brain(app: Application) : AndroidViewModel(app) {
                 val message = data.str("assistantMessageID") ?: return
                 val reasoning = type == "session.reasoning.delta"
                 val ordinal = data.optInt("ordinal")
-                val delta = data.str("delta") ?: ""
-                val at = live.indexOfFirst { it.message == message && it.reasoning == reasoning && it.ordinal == ordinal }
-                if (at < 0) live += Live(message, reasoning, ordinal, delta)
-                else live[at] = Live(message, reasoning, ordinal, live[at].text + delta)
+                // a delta is one word of many in a second: it is gathered here, not drawn where it lands
+                val draft = drafts.getOrPut("$message\u0000$reasoning\u0000$ordinal") { Draft(message, reasoning, ordinal) }
+                draft.text.append(data.str("delta") ?: "")
+                flushDeltas()
                 return
             }
             type == "session.compaction.started" && sid != null -> compacting[sid] = true
@@ -298,6 +304,32 @@ class Brain(app: Application) : AndroidViewModel(app) {
             }
         }
         if (sid != null && sid == open && type.startsWith("session.")) soonMessages()
+    }
+
+    /** Redraws at a pace the eye can follow: one pass every twentieth of a second, however fast words arrive. */
+    private fun flushDeltas() {
+        if (flushing) return
+        flushing = true
+        viewModelScope.launch {
+            while (drafts.isNotEmpty()) {
+                delay(50)
+                showDrafts()
+            }
+            flushing = false
+        }
+    }
+
+    /** The gathered words of each piece still being written are joined onto what is already on screen. */
+    private fun showDrafts() {
+        val batch = drafts.values.toList()
+        drafts.clear()
+        for (d in batch) {
+            val text = d.text.toString()
+            if (text.isEmpty()) continue
+            val at = live.indexOfFirst { it.message == d.message && it.reasoning == d.reasoning && it.ordinal == d.ordinal }
+            if (at < 0) live += Live(d.message, d.reasoning, d.ordinal, text)
+            else live[at] = Live(d.message, d.reasoning, d.ordinal, live[at].text + text)
+        }
     }
 
     private fun updateService() {
@@ -423,6 +455,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
     fun openSession(id: String?) {
         open = id
         messages = emptyList()
+        drafts.clear()
         live.clear()
         if (id != null) viewModelScope.launch { guard { loadMessages(id); loadAsks() } }
     }
@@ -453,6 +486,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
                         "location" to jsonOf("directory" to dir.absolutePath))).getJSONObject("data").getString("id")
                     open = id
                     messages = emptyList()
+                    drafts.clear()
                     live.clear()
                 } else if (session(id)?.model != m.ref || session(id)?.variant.orEmpty() != variantOf(m)) {
                     api.post("/api/session/$id/model", jsonOf("model" to ref(m)))
@@ -492,6 +526,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
                 guard {
                     api.post("/api/session/$id/revert/stage", jsonOf("messageID" to user.id))
                     api.post("/api/session/$id/revert/commit")
+                    drafts.clear()
                     live.clear()
                     prompt(id, text, user.files.filter { File(it).exists() })
                     loadMessages(id)
