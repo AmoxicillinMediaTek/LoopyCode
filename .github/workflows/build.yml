@@ -64,6 +64,9 @@ jobs:
           echo "NDK=$ndk" >> "$GITHUB_ENV"
           echo "NINJA=$(command -v ninja)" >> "$GITHUB_ENV"
           echo "JOBS=$(nproc)" >> "$GITHUB_ENV"
+          cmake --version | head -n 1
+          ninja --version
+          "$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" --version | head -n 1
 
       - name: Build opencode
         run: engine/build-engine.sh
