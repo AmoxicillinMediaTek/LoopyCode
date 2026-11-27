@@ -10,6 +10,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -89,9 +90,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -106,6 +111,7 @@ import app.amoxi.loopycode.data.Message
 import app.amoxi.loopycode.data.Part
 import app.amoxi.loopycode.data.str
 import app.amoxi.loopycode.tr
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -127,7 +133,8 @@ fun thinkingLabel(v: String) = when (v) {
 fun ChatScreen(brain: Brain, openDrawer: () -> Unit) {
     val id = brain.open
     val model = brain.currentModel()
-    val running = id != null && brain.busy[id] == true
+    // a prompt still being handed over is already a turn: the composer must not send it twice
+    val running = brain.admitting || (id != null && brain.busy[id] == true)
     var picker by remember { mutableStateOf(false) }
     var text by remember(id) { mutableStateOf("") }
     val pictures = remember(id) { mutableStateListOf<String>() }
@@ -533,11 +540,64 @@ private fun Composer(
                     }
                 }
                 if (editing == null) Box(Modifier.weight(1f)) { FolderChip(brain) } else Spacer(Modifier.weight(1f))
+                ContextRing(brain)
                 if (running) FilledIconButton(stop) { Icon(Icons.Outlined.Stop, tr("Остановить", "Stop")) }
                 else FilledIconButton(send, enabled = canSend) {
                     Icon(Icons.AutoMirrored.Outlined.Send, tr("Отправить", "Send"), Modifier.size(20.dp))
                 }
             }
+        }
+    }
+}
+
+/**
+ * How full the chat's context window is, as a ring beside the send button: plain while there is room,
+ * amber as it fills and red at the point where the app compacts on its own.
+ */
+@Composable
+private fun ContextRing(brain: Brain) {
+    val limit = brain.contextLimit()
+    val used = brain.contextUsed()
+    if (limit <= 0 || used <= 0) return
+    val ratio = (used.toFloat() / limit.toFloat()).coerceIn(0f, 1f)
+    val full = ratio >= 0.8f
+    val colour = when {
+        full -> MaterialTheme.colorScheme.error
+        ratio >= 0.6f -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.primary
+    }
+    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clip(RoundedCornerShape(18.dp)).clickable { menu = true }
+                .padding(horizontal = 6.dp, vertical = 6.dp),
+        ) {
+            Canvas(Modifier.size(20.dp)) {
+                val stroke = 2.4.dp.toPx()
+                val side = size.minDimension - stroke
+                val corner = Offset((size.width - side) / 2f, (size.height - side) / 2f)
+                drawArc(track, 0f, 360f, false, corner, Size(side, side), style = Stroke(stroke))
+                drawArc(colour, -90f, 360f * ratio, false, corner, Size(side, side),
+                    style = Stroke(stroke, cap = StrokeCap.Round))
+            }
+            Text("${(ratio * 100).roundToInt()}%", style = MaterialTheme.typography.labelSmall,
+                color = if (full) colour else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 5.dp))
+        }
+        DropdownMenu(menu, { menu = false }) {
+            DropdownMenuItem(text = { Text(tr("Контекст: ", "Context: ") + tokens(used) + " / " + tokens(limit)) },
+                onClick = { menu = false })
+            if (brain.session() != null) DropdownMenuItem(
+                text = { Text(tr("Сжать сейчас", "Compact now")) },
+                onClick = { menu = false; brain.compact() },
+            )
+            DropdownMenuItem(
+                text = { Text(if (brain.prefs.autoCompact) tr("Сжимать при 80%: вкл", "Compact at 80%: on")
+                    else tr("Сжимать при 80%: выкл", "Compact at 80%: off")) },
+                onClick = { menu = false; brain.update { it.copy(autoCompact = !it.autoCompact) } },
+            )
         }
     }
 }

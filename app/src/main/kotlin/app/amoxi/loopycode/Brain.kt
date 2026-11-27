@@ -39,6 +39,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.LinkedHashSet
 import java.util.UUID
 
 /** Everything the screens show and do. The work itself is opencode's, running inside the app. */
@@ -101,6 +102,18 @@ class Brain(app: Application) : AndroidViewModel(app) {
     private val live = mutableStateListOf<Live>()
     private var refetchMessages: Job? = null
     private var refetchSessions: Job? = null
+    /** The event stream has one owner: a restart takes the old one down instead of adding another. */
+    private var listener: Job? = null
+    private var generation = 0
+    /** Event ids already handled, so a second subscription cannot put the same words on screen twice. */
+    private val seenEvents = LinkedHashSet<String>()
+    /** Sessions opencode has been asked to compact and has not answered for yet. */
+    private val compacting = mutableStateMapOf<String, Boolean>()
+    /** The answer a chat was last compacted at, so one full window is only asked about once. */
+    private val compactedAt = mutableMapOf<String, String>()
+    /** A prompt is on its way to opencode: the same one must not be sent a second time. */
+    var admitting by mutableStateOf(false)
+        private set
 
     init {
         viewModelScope.launch { boot() }
@@ -108,6 +121,9 @@ class Brain(app: Application) : AndroidViewModel(app) {
 
     private suspend fun boot() {
         engineError = null
+        // one stream at a time: the previous boot's listener goes before the engine is touched again
+        listener?.cancel()
+        val gen = ++generation
         // the local server goes first: opencode is told its address when it starts
         localError = runCatching { local.start(prefs.localContext, 0) }.exceptionOrNull()?.message
         try {
@@ -117,7 +133,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
             return
         }
         engineError = ""
-        viewModelScope.launch { listen() }
+        listener = viewModelScope.launch { listen(gen) }
         refreshAll()
     }
 
@@ -171,7 +187,16 @@ class Brain(app: Application) : AndroidViewModel(app) {
     private suspend fun loadMessages(id: String) {
         val raw = api.get("/api/session/$id/message?limit=200").optJSONArray("data").objects()
         val list = withContext(Dispatchers.IO) { raw.mapNotNull { Message.from(it, ::attachment) }.reversed() }
-        if (open == id) messages = list
+        if (open != id) return
+        messages = list
+        maybeCompact()
+    }
+
+    /** True the first time an event id is seen, keeping the last thousand to compare against. */
+    private fun fresh(id: String): Boolean {
+        if (!seenEvents.add(id)) return false
+        while (seenEvents.size > 1000) seenEvents.remove(seenEvents.first())
+        return true
     }
 
     /** The picture itself when it is still on the phone, else its bytes from opencode written to the cache once. */
@@ -216,8 +241,8 @@ class Brain(app: Application) : AndroidViewModel(app) {
     }
 
     /** opencode's event stream: deltas go straight to the screen, anything lasting triggers a re-read. */
-    private suspend fun listen() {
-        while (true) {
+    private suspend fun listen(gen: Int) {
+        while (gen == generation) {
             try {
                 api.events { e -> viewModelScope.launch { onEvent(e) } }
             } catch (e: CancellationException) {
@@ -225,6 +250,7 @@ class Brain(app: Application) : AndroidViewModel(app) {
             } catch (_: Exception) {
             }
             delay(1000)
+            if (gen != generation) return
             if (!engine.running) {
                 engineError = tr("opencode остановился", "opencode stopped") + "\n" + engine.log.readText().takeLast(1200)
                 return
@@ -236,6 +262,8 @@ class Brain(app: Application) : AndroidViewModel(app) {
 
     private fun onEvent(e: JSONObject) {
         val type = e.str("type") ?: return
+        // opencode hands every subscriber the same event; reading one of them is enough
+        e.str("id")?.let { if (!fresh(it)) return }
         val data = e.optJSONObject("data") ?: JSONObject()
         val sid = data.str("sessionID")
         when {
@@ -250,6 +278,8 @@ class Brain(app: Application) : AndroidViewModel(app) {
                 else live[at] = Live(message, reasoning, ordinal, live[at].text + delta)
                 return
             }
+            type == "session.compaction.started" && sid != null -> compacting[sid] = true
+            type.startsWith("session.compaction.") && sid != null -> compacting.remove(sid)
             type == "session.execution.started" && sid != null -> { busy[sid] = true; updateService() }
             type.startsWith("session.execution.") && sid != null -> {
                 busy[sid] = false
@@ -293,12 +323,50 @@ class Brain(app: Application) : AndroidViewModel(app) {
                 }
             }
             Message(m.id, m.role, parts = parts, model = m.model, error = m.error, tokensIn = m.tokensIn,
-                tokensOut = m.tokensOut, done = m.done)
+                tokensOut = m.tokensOut, used = m.used, done = m.done)
         }.toMutableList()
         for ((id, pieces) in byMessage) if (out.none { it.id == id }) {
             out += Message(id, "assistant", parts = pieces.map { part(it) }, done = false)
         }
         return out
+    }
+
+    // ---- the context window ----
+
+    /** Tokens the last answer was given: what opencode hands the model each turn. */
+    fun contextUsed(): Long = messages.lastOrNull { !it.user && it.used > 0 }?.used ?: 0
+
+    /** The open chat's window, or 0 when nothing is known about the model in it. */
+    fun contextLimit(): Long = currentModel()?.context?.takeIf { it > 0 } ?: 0
+
+    /** Compact this chat now; opencode steers it in at the next step boundary. */
+    fun compact() {
+        val id = open ?: return
+        viewModelScope.launch { guard { requestCompact(id) } }
+    }
+
+    private suspend fun requestCompact(id: String) {
+        compacting[id] = true
+        try {
+            api.post("/api/session/$id/compact")
+        } catch (e: Exception) {
+            // only opencode's own compaction events may clear this on the way through
+            compacting.remove(id)
+            throw e
+        }
+    }
+
+    /** Four fifths of the window taken means the next turn is near the model's ceiling: make room. */
+    private fun maybeCompact() {
+        val id = open ?: return
+        if (!prefs.autoCompact || admitting) return
+        if (busy[id] == true || compacting[id] == true) return
+        val limit = contextLimit().takeIf { it > 0 } ?: return
+        val last = messages.lastOrNull { !it.user && it.used > 0 } ?: return
+        if (last.used * 5 < limit * 4) return
+        if (compactedAt[id] == last.id) return
+        compactedAt[id] = last.id
+        viewModelScope.launch { guard { requestCompact(id) } }
     }
 
     // ---- models ----
@@ -373,7 +441,10 @@ class Brain(app: Application) : AndroidViewModel(app) {
 
     fun send(text: String, pictures: List<String>) {
         val m = currentModel() ?: return
+        if (admitting) return
+        admitting = true
         viewModelScope.launch {
+            try {
             guard {
                 var id = open
                 if (id == null) {
@@ -393,6 +464,9 @@ class Brain(app: Application) : AndroidViewModel(app) {
                 loadSessions()
                 loadMessages(id)
             }
+            } finally {
+                admitting = false
+            }
         }
     }
 
@@ -411,13 +485,19 @@ class Brain(app: Application) : AndroidViewModel(app) {
     /** Rolls the chat back to before a message of the person's, then sends it again, changed or not. */
     fun resend(user: Message, text: String = user.text) {
         val id = open ?: return
+        if (admitting) return
+        admitting = true
         viewModelScope.launch {
-            guard {
-                api.post("/api/session/$id/revert/stage", jsonOf("messageID" to user.id))
-                api.post("/api/session/$id/revert/commit")
-                live.clear()
-                prompt(id, text, user.files.filter { File(it).exists() })
-                loadMessages(id)
+            try {
+                guard {
+                    api.post("/api/session/$id/revert/stage", jsonOf("messageID" to user.id))
+                    api.post("/api/session/$id/revert/commit")
+                    live.clear()
+                    prompt(id, text, user.files.filter { File(it).exists() })
+                    loadMessages(id)
+                }
+            } finally {
+                admitting = false
             }
         }
     }

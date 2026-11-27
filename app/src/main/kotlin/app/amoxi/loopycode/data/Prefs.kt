@@ -22,6 +22,8 @@ data class Prefs(
     val localContext: Int = 16384,
     /** Models on the phone get opencode's tools too; off, they just talk, with a prompt ten times shorter. */
     val localTools: Boolean = false,
+    /** Compact the chat on its own once four fifths of the model's window are taken. */
+    val autoCompact: Boolean = true,
 ) {
     fun json() = jsonOf(
         "model" to model,
@@ -34,6 +36,7 @@ data class Prefs(
         "linux" to linux,
         "localContext" to localContext,
         "localTools" to localTools,
+        "autoCompact" to autoCompact,
     )
 
     companion object {
@@ -52,6 +55,7 @@ data class Prefs(
                 linux = o.optBoolean("linux", true),
                 localContext = o.optInt("localContext", 16384),
                 localTools = o.optBoolean("localTools"),
+                autoCompact = o.optBoolean("autoCompact", true),
             )
         }
 

@@ -106,6 +106,8 @@ class Message(
     val outcome: String? = null,
     val tokensIn: Long = 0,
     val tokensOut: Long = 0,
+    /** How much the model was given for this answer: the context window as it stood at that turn. */
+    val used: Long = 0,
     val done: Boolean = true,
 ) {
     val user get() = role == "user"
@@ -138,11 +140,16 @@ class Message(
                         }
                     }
                     val tokens = o.optJSONObject("tokens")
+                    val cache = tokens?.optJSONObject("cache")
+                    // input leaves out what came from the cache, which still takes up the window
+                    val used = (tokens?.optLong("input") ?: 0) +
+                        (cache?.optLong("read") ?: 0) + (cache?.optLong("write") ?: 0)
                     Message(id, "assistant", parts = parts,
                         model = o.optJSONObject("model")?.str("id"),
                         error = error(o.optJSONObject("error")),
                         tokensIn = tokens?.optLong("input") ?: 0,
                         tokensOut = (tokens?.optLong("output") ?: 0) + (tokens?.optLong("reasoning") ?: 0),
+                        used = used,
                         done = o.optJSONObject("time")?.has("completed") == true)
                 }
                 "idle" -> Message(id, "idle", outcome = o.str("outcome"), error = error(o.optJSONObject("error")))
