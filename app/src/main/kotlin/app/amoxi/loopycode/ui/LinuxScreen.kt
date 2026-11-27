@@ -1,6 +1,5 @@
 package app.amoxi.loopycode.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +21,8 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.amoxi.loopycode.Brain
@@ -79,27 +81,31 @@ fun LinuxScreen(brain: Brain, back: () -> Unit) {
     val scope = rememberCoroutineScope()
     val installed = linux.installed
     var problem by remember { mutableStateOf<String?>(null) }
-    var command by remember { mutableStateOf("") }
+    var command by remember { mutableStateOf(TextFieldValue("")) }
     var log by remember { mutableStateOf("") }
     var running by remember { mutableStateOf(false) }
+    var shift by remember { mutableStateOf(false) }
+    var control by remember { mutableStateOf(false) }
 
     fun run(cmd: String) {
         if (cmd.isBlank() || running) return
         running = true
         log += "$ $cmd\n"
         scope.launch {
-            val out = runCatching { linux.run(cmd, brain.claude.dns()) }.getOrElse { it.message ?: it.toString() }
-            log = (log + out + "\n\n").takeLast(20_000)
-            running = false
+            try {
+                val out = linux.run(cmd, brain.claude.dns())
+                log = (log + out + "\n\n").takeLast(20_000)
+            } catch (error: Exception) {
+                problem = error.message ?: error.toString()
+            } finally {
+                running = false
+            }
         }
     }
 
-    Page("Linux", back) { mod ->
-        Column(mod.verticalScroll(rememberScrollState()).navigationBarsPadding().imePadding().padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(tr("Alpine Linux внутри приложения, как в Termux. Модель запускает в нём свои команды и сама ставит что нужно через apk: python, node, git, компиляторы. Ваши папки видны по тем же путям.",
-                "Alpine Linux inside the app, as in Termux. The model runs its commands there and installs what it needs with apk: python, node, git, compilers. Your folders keep the same paths."),
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Page(tr("Терминал Alpine", "Alpine terminal"), back) { mod ->
+        Column(mod.navigationBarsPadding().imePadding().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
             if (!installed) {
                 val p = brain.linuxProgress
@@ -111,34 +117,65 @@ fun LinuxScreen(brain: Brain, back: () -> Unit) {
                     Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             } else {
-                Text("Alpine ${linux.version.orEmpty()} · " + tr("команды модели запускаются здесь", "model commands run here"),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Terminal, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Text("Alpine ${linux.version.orEmpty()} · " + tr("команды модели запускаются здесь", "model commands run here"),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 8.dp))
+                }
 
-                Section(tr("Консоль", "Console"))
-                Text(tr("Каждая команда запускается отдельно в папке приложения. Например: apk add python3",
-                    "Each command runs on its own in the app folder. For example: apk add python3"),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (log.isNotEmpty()) Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()) {
+                    modifier = Modifier.weight(1f).fillMaxWidth()) {
                     SelectionContainer {
-                        Text(log.trimEnd(), fontFamily = FontFamily.Monospace, fontSize = 11.sp, lineHeight = 15.sp,
-                            modifier = Modifier.padding(12.dp).horizontalScroll(rememberScrollState()))
+                        Text(log.trimEnd(), fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 17.sp,
+                            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).horizontalScroll(rememberScrollState()).padding(12.dp))
+                    }
+                } else Spacer(Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    listOf("Esc", "Tab", "Ctrl", "Shift", "↑", "↓", "|", "/", "~", "-", "_", "←", "→").forEach { key ->
+                        val selected = when (key) { "Shift" -> shift; "Ctrl" -> control; else -> false }
+                        OutlinedButton(onClick = {
+                            when (key) {
+                                "Shift" -> shift = !shift
+                                "Ctrl" -> control = !control
+                                "Esc" -> {
+                                    val start = minOf(command.selection.start, command.selection.end)
+                                    val end = maxOf(command.selection.start, command.selection.end)
+                                    val next = command.text.replaceRange(start, end, "\u001B")
+                                    command = command.copy(text = next, selection = androidx.compose.ui.text.TextRange(start + 1))
+                                    problem = null
+                                    shift = false; control = false
+                                }
+                                else -> {
+                                    val insert = when (key) {
+                                        "↑" -> "\u001B[A"; "↓" -> "\u001B[B"; "←" -> "\u001B[D"; "→" -> "\u001B[C"
+                                        "Tab" -> "\t"; else -> key
+                                    }
+                                    val value = if (control && insert.length == 1) (insert[0].uppercaseChar().code - 64).toChar().toString() else if (shift) insert.uppercase() else insert
+                                    val start = minOf(command.selection.start, command.selection.end)
+                                    val end = maxOf(command.selection.start, command.selection.end)
+                                    val next = command.text.replaceRange(start, end, value)
+                                    command = command.copy(text = next, selection = androidx.compose.ui.text.TextRange(start + value.length))
+                                    problem = null
+                                    control = false; shift = false
+                                }
+                            }
+                        }, enabled = !running, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                            modifier = Modifier.height(38.dp)) { Text(key, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
+                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
                     }
                 }
-                OutlinedTextField(command, { command = it }, singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                    placeholder = { Text("apk add python3") },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { run(command); command = "" }),
-                    trailingIcon = {
-                        if (running) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                        else IconButton({ run(command); command = "" }) { Icon(Icons.AutoMirrored.Outlined.Send, null) }
-                    },
-                    modifier = Modifier.fillMaxWidth())
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton({ run("cat /etc/alpine-release; uname -m; apk --version") }, enabled = !running) {
-                        Text(tr("Проверить", "Check"))
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(command, { command = it }, singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                        placeholder = { Text("apk add python3") },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = { run(command.text); command = TextFieldValue("") }),
+                        trailingIcon = {
+                            if (running) IconButton({ linux.interrupt() }) { Icon(Icons.Outlined.Close, tr("Остановить", "Stop")) }
+                            else IconButton({ run(command.text); command = TextFieldValue("") }) { Icon(Icons.AutoMirrored.Outlined.Send, tr("Выполнить", "Run")) }
+                        }, modifier = Modifier.weight(1f))
+                    if (running) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 }
             }
             problem?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }

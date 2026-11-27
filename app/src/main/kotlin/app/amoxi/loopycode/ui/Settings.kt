@@ -90,17 +90,6 @@ fun SettingsScreen(brain: Brain, back: () -> Unit) {
                 }
             }
             if (folders) FolderDialog(brain) { folders = false }
-            Row(Modifier.fillMaxWidth().clickable { brain.screens.add("linux") }.padding(horizontal = 24.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(tr("Linux для модели", "Linux for the model"))
-                    Text(when {
-                        !brain.linuxInstalled -> tr("Установка Alpine…", "Installing Alpine…")
-                        else -> "Alpine ${brain.linux.version.orEmpty()}"
-                    }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
             Section(tr("Данные", "Data"))
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton({ brain.screens.add("config") }) { Text(tr("Настройки opencode (opencode.json)", "opencode settings (opencode.json)")) }

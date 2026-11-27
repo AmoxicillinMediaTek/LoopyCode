@@ -112,7 +112,7 @@ private fun Root(brain: Brain) {
             screen == "settings" -> SettingsScreen(brain, back)
             screen == "limits" -> LimitsScreen(brain, back)
             screen == "tools" -> ToolsScreen(brain, back)
-            screen == "linux" -> LinuxScreen(brain, back)
+            screen == "linux" || screen == "terminal" -> LinuxScreen(brain, back)
             screen == "local" -> LocalScreen(brain, back)
         }
     }

@@ -14,12 +14,13 @@ import java.security.MessageDigest
  * the model runs happens there, with apk to install whatever it needs.
  */
 class Linux(private val context: Context, private val engine: Engine) {
+    @Volatile private var commandProcess: Process? = null
     private val dir get() = File(context.filesDir, "linux")
     val rootfs get() = File(dir, "rootfs")
     private val libs get() = context.applicationInfo.nativeLibraryDir
 
-    val installed get() = File(rootfs, "etc/alpine-release").exists()
     val version get() = File(rootfs, "etc/alpine-release").takeIf { it.exists() }?.readText()?.trim()
+    val installed get() = version == ALPINE_VERSION
 
     /** opencode runs its commands through SHELL, so pointing it here moves them all into Alpine. */
     fun env(): Map<String, String> {
@@ -44,13 +45,8 @@ class Linux(private val context: Context, private val engine: Engine) {
 
     /** Downloads the newest minirootfs of the pinned Alpine branch and unpacks it with Android's own tar. */
     suspend fun install(progress: (Long, Long) -> Unit) = withContext(Dispatchers.IO) {
-        val yaml = URL("$BASE/latest-releases.yaml").openStream().bufferedReader().use { it.readText() }
-        val block = yaml.split("\n-").firstOrNull { it.contains("flavor: alpine-minirootfs") }
-            ?: error("Alpine: no minirootfs in latest-releases.yaml")
-        fun field(name: String) = Regex("""(?m)^\s*$name:\s*(\S+)""").find(block)?.groupValues?.get(1)
-            ?: error("Alpine: no $name")
-        val file = field("file")
-        val sha = field("sha256")
+        val file = "alpine-minirootfs-$ALPINE_VERSION-aarch64.tar.gz"
+        val sha = ALPINE_SHA256
         dir.mkdirs()
         val archive = File(dir, "rootfs.tar.gz")
         val c = URL("$BASE/$file").openConnection() as HttpURLConnection
@@ -98,10 +94,19 @@ class Linux(private val context: Context, private val engine: Engine) {
         val pb = ProcessBuilder("$libs/liblinux.so", "-c", command).directory(engine.workspace).redirectErrorStream(true)
         pb.environment().putAll(engine.baseEnv() + env())
         val p = pb.start()
-        p.outputStream.close()
-        val text = p.inputStream.bufferedReader().readText()
-        p.waitFor()
-        text.trim()
+        commandProcess = p
+        try {
+            p.outputStream.close()
+            val text = p.inputStream.bufferedReader().readText()
+            p.waitFor()
+            text.trim()
+        } finally {
+            if (commandProcess === p) commandProcess = null
+        }
+    }
+
+    fun interrupt() {
+        commandProcess?.destroy()
     }
 
     fun remove() {
@@ -126,6 +131,8 @@ class Linux(private val context: Context, private val engine: Engine) {
     }
 
     companion object {
-        private const val BASE = "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/aarch64"
+        const val ALPINE_VERSION = "3.24.4"
+        private const val ALPINE_SHA256 = "4b14c18f7e90a063b61462ea1462a5732c154bf6adad594974fe6487cd98a8de"
+        private const val BASE = "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/aarch64"
     }
 }

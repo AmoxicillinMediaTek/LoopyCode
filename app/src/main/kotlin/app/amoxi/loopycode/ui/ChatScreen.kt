@@ -58,6 +58,7 @@ import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.TaskAlt
+import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -171,6 +172,9 @@ fun ChatScreen(brain: Brain, openDrawer: () -> Unit) {
                 }
             },
             actions = {
+                IconButton({ brain.screens.add("terminal") }, enabled = brain.linuxInstalled) {
+                    Icon(Icons.Outlined.Terminal, tr("Терминал Alpine", "Alpine terminal"))
+                }
                 IconButton({ brain.openSession(null) }, enabled = id != null) { Icon(Icons.Outlined.EditNote, tr("Новый чат", "New chat")) }
             },
             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
